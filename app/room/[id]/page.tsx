@@ -18,18 +18,30 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     const hostToken = localStorage.getItem('bidking_hostToken');
     const guestToken = localStorage.getItem('bidking_guestToken');
     
-    // Very rudimentary check: in a real app we'd decode JWT
-    if (hostToken) {
+    const decodeToken = (token: string | null) => {
+      if (!token) return null;
+      try {
+        const b64 = token.split('.')[0];
+        return JSON.parse(atob(b64));
+      } catch (e) {
+        return null;
+      }
+    };
+
+    const hostPayload = decodeToken(hostToken);
+    const guestPayload = decodeToken(guestToken);
+
+    if (hostPayload?.roomId === roomId && hostPayload?.role === 'host') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRole('host');
-    } else if (guestToken) {
+    } else if (guestPayload?.roomId === roomId && guestPayload?.role === 'guest') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRole('guest');
     } else {
       // Must join first
       window.location.href = '/';
     }
-  }, []);
+  }, [roomId]);
 
   if (role === 'loading') {
     return (

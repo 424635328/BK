@@ -29,14 +29,13 @@ export interface GameState {
   timer: number;
 }
 
-// Fixed Set of Game Items
 export const GAME_ITEMS: Item[] = [
-  { id: 'item1', name: 'Ming Dynasty Vase', baseValue: 500, trueValue: 300, description: 'Looks authentic, but the glaze is suspicious...' },
-  { id: 'item2', name: 'The Lost Picasso', baseValue: 2000, trueValue: 8000, description: 'Found in a garage. It radiates an undeniable aura.' },
-  { id: 'item3', name: 'Cursed Egyptian Amulet', baseValue: 800, trueValue: 50, description: 'Smells like plastic and regret.' },
-  { id: 'item4', name: 'Vintage Rolex Daytona', baseValue: 1500, trueValue: 1600, description: 'A solid piece, ticking smoothly.' },
-  { id: 'item5', name: 'Alien Meteorite Fragment', baseValue: 3000, trueValue: 800, description: 'Glows in the dark. Probably just radioactive paint.' },
-  { id: 'item6', name: 'Blackbeard\'s Gold Coin', baseValue: 1000, trueValue: 5000, description: 'Heavy, worn out, and authentic.' }
+  { id: 'item1', name: '明朝青花瓷 (Ming Dynasty Vase)', baseValue: 500, trueValue: 300, description: '看起来像真迹，但釉面似乎有点可疑...' },
+  { id: 'item2', name: '遗失的毕加索 (The Lost Picasso)', baseValue: 2000, trueValue: 8000, description: '在一个老旧车库中发现，散发着无法否认的艺术光环。' },
+  { id: 'item3', name: '被诅咒的埃及护身符 (Cursed Egyptian Amulet)', baseValue: 800, trueValue: 50, description: '闻起来有一股塑料的味道和深深的遗憾。' },
+  { id: 'item4', name: '复古劳力士迪通拿 (Vintage Rolex Daytona)', baseValue: 1500, trueValue: 1600, description: '一件坚固且运转流畅的经典艺术品。' },
+  { id: 'item5', name: '外星陨石碎片 (Alien Meteorite Fragment)', baseValue: 3000, trueValue: 800, description: '在黑暗中隐隐发光。也许只是涂了放射性荧光漆而已。' },
+  { id: 'item6', name: '黑胡子海盗金币 (Blackbeard\'s Gold Coin)', baseValue: 1000, trueValue: 5000, description: '沉重，磨损严重，但绝对属于真品。' }
 ];
 
 export const ROLES = {
