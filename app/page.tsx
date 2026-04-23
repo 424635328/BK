@@ -20,7 +20,7 @@ export default function Home() {
     try {
       const res = await callRelay('create');
       localStorage.setItem('bidking_hostToken', res.hostToken);
-      router.push(`/room/${res.roomId}`);
+      router.push(`/room?id=${res.roomId}`);
     } catch (e) {
       alert('创建房间失败，服务器异常请重试。 (Failed to create room)');
       setLoading(false);
@@ -38,7 +38,7 @@ export default function Home() {
       const res = await callRelay('join', { roomId: joinCode.toUpperCase(), guestName: name, roleId: selectedRole });
       localStorage.setItem('bidking_guestToken', res.guestToken);
       localStorage.setItem('bidking_guestId', res.guestId);
-      router.push(`/room/${joinCode.toUpperCase()}`);
+      router.push(`/room?id=${joinCode.toUpperCase()}`);
     } catch (e) {
       alert('连接节点失败。请检查房间密钥是否正确！(Failed to join room)');
       setLoading(false);

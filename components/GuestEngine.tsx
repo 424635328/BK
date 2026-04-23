@@ -76,7 +76,7 @@ export default function GuestEngine({ roomId }: { roomId: string }) {
     }
   };
 
-  if (!state) return <div className="text-white text-center mt-20 animate-pulse text-amber-500 font-mono">协议连接中，等待主机节点响应... (Waiting for Host sync...)</div>;
+  if (!state) return <div className="text-white text-center mt-20">Loading or waiting for Host sync...</div>;
 
   return (
     <GameUI 
