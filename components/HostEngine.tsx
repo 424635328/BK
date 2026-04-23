@@ -151,7 +151,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
     st.round += 1;
     st.bids = {};
     st.status = 'bidding';
-    st.timer = 15; // 15 seconds to bid
+    st.timer = 45; // 45 seconds to bid
     
     // Pick random item
     const available = GAME_ITEMS.filter(item => !st.winnerHistory.find(w => w.item.id === item.id));
