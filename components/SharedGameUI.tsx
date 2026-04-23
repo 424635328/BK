@@ -1,6 +1,7 @@
 import { Item, GameState } from '@/lib/game';
 import { motion } from 'motion/react';
 import { ShieldAlert, Info, Copy } from 'lucide-react';
+import { useState } from 'react';
 
 export function GameUI({
   state,
@@ -20,11 +21,13 @@ export function GameUI({
   hasBid?: boolean;
 }) {
   const me = myId ? state.players[myId] : null;
+  const [copied, setCopied] = useState(false);
 
   const copyRoomId = async () => {
     try {
       await navigator.clipboard.writeText(roomId);
-      // 可以在这里添加toast通知，但暂时只复制
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // 2秒后隐藏toast
     } catch (err) {
       console.error('Failed to copy room ID: ', err);
     }
@@ -39,13 +42,28 @@ export function GameUI({
           </div>
           <h1 className="text-[10px] text-white/40 uppercase tracking-[0.2em] mb-2">房间实例 (ROOM INSTANCE)</h1>
           <p className="text-4xl font-mono font-bold text-white tracking-widest">#{roomId}</p>
-          <button
-            onClick={copyRoomId}
-            className="mt-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white/80 hover:text-white text-sm font-mono uppercase tracking-widest transition-all flex items-center gap-2"
-          >
-            <Copy size={16} />
-            复制房间号
-          </button>
+          
+          <div className="flex flex-col items-center gap-3 mt-4">
+            <button
+              onClick={copyRoomId}
+              className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold uppercase tracking-widest rounded-lg transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] flex items-center gap-2"
+            >
+              <Copy size={18} />
+              复制房间号
+            </button>
+            
+            {copied && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="px-3 py-1 bg-green-500/20 border border-green-500/40 text-green-400 rounded-md text-xs font-bold uppercase tracking-widest"
+              >
+                ✓ 已复制到剪贴板
+              </motion.div>
+            )}
+          </div>
+          
           <p className="text-white/40 text-[10px] uppercase font-mono mt-4">等待节点连接中 (Awaiting peer connections...)</p>
         </div>
         
