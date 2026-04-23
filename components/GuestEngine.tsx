@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { callRelay } from '@/lib/api';
 import { GameState } from '@/lib/game';
 import { GameUI } from './SharedGameUI';
@@ -12,43 +12,68 @@ export default function GuestEngine({ roomId }: { roomId: string }) {
   const [state, setState] = useState<GameState | null>(null);
   const [pendingBid, setPendingBid] = useState<number | undefined>();
 
-  // Polling loop
+  const stateRef = useRef<GameState | null>(null);
+  const pendingBidRef = useRef<number | undefined>(undefined);
+
+  // Async Polling loop
   useEffect(() => {
-    let timer = 0;
+    let active = true;
     
     const poll = async () => {
-      try {
-        const payload: any = {};
-        if (pendingBid !== undefined && state?.status === 'bidding') {
-          payload.pendingBid = pendingBid;
-          payload.round = state.round;
+      while (active) {
+        try {
+          const st = stateRef.current;
+          const payload: any = {};
+          
+          if (pendingBidRef.current !== undefined && st?.status === 'bidding') {
+            payload.pendingBid = pendingBidRef.current;
+            payload.round = st.round;
+          }
+
+          const res = await callRelay('guest-sync', payload, guestToken);
+          
+          if (res.state && active) {
+            setState((prev) => {
+              if (!prev || res.state.version > prev.version) {
+                 stateRef.current = res.state;
+                 return res.state;
+              }
+              return prev;
+            });
+          }
+        } catch (e) {
+          console.error('Guest poll error', e);
         }
 
-        const res = await callRelay('guest-sync', payload, guestToken);
-        
-        if (res.state) {
-          setState((prev) => {
-            // Ignore stale state if we somehow fetched an older version
-            if (!prev || res.state.version >= prev.version) {
-              return res.state;
-            }
-            return prev;
-          });
-        }
-      } catch (e) {
-        console.error('Guest poll error', e);
+        const isIntense = stateRef.current?.status === 'bidding' || stateRef.current?.status === 'locking';
+        await new Promise(r => setTimeout(r, isIntense ? 600 : 1500));
       }
     };
+    
+    poll();
+    return () => { active = false; };
+  }, [guestToken]);
 
-    // Adaptive backoff
-    const isIntense = state?.status === 'bidding' || state?.status === 'locking';
-    timer = window.setInterval(poll, isIntense ? 500 : 1500);
+  // Clean pendingBid correctly across rounds
+  useEffect(() => {
+    if (state?.status === 'revealing' || state?.status === 'lobby') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPendingBid(undefined);
+      pendingBidRef.current = undefined;
+    }
+  }, [state?.status, state?.round]);
 
-    return () => clearInterval(timer);
-  }, [guestToken, pendingBid, state?.status, state?.round]);
-
-  const handleBid = (amt: number) => {
+  const handleBid = async (amt: number) => {
     setPendingBid(amt);
+    pendingBidRef.current = amt;
+    
+    // Fire it synchronously to bypass polling wait
+    const st = stateRef.current;
+    if (st && st.status === 'bidding') {
+      try {
+        await callRelay('guest-sync', { pendingBid: amt, round: st.round }, guestToken);
+      } catch (e) {}
+    }
   };
 
   if (!state) return <div className="text-white text-center mt-20">Loading or waiting for Host sync...</div>;
@@ -60,6 +85,7 @@ export default function GuestEngine({ roomId }: { roomId: string }) {
       myId={guestId}
       isHost={false}
       onBid={handleBid}
+      hasBid={pendingBid !== undefined}
     />
   );
 }

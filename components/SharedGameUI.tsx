@@ -8,7 +8,8 @@ export function GameUI({
   myId,
   isHost,
   onStart,
-  onBid
+  onBid,
+  hasBid
 }: {
   state: GameState;
   roomId: string;
@@ -16,6 +17,7 @@ export function GameUI({
   isHost: boolean;
   onStart?: () => void;
   onBid?: (amt: number) => void;
+  hasBid?: boolean;
 }) {
   const me = myId ? state.players[myId] : null;
 
@@ -104,6 +106,9 @@ export function GameUI({
                     <div className="flex items-center gap-2">
                        <div className={`w-2 h-2 rounded-full ${p.id === myId ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]' : 'bg-white/20'}`}></div>
                        <span className={`text-sm tracking-wide ${p.id === myId ? 'font-bold text-white' : 'font-medium text-white/80'}`}>{p.name} {p.id === myId && '(You)'}</span>
+                       {(state.status === 'bidding' || state.status === 'locking') && state.bids[p.id] !== undefined && (
+                           <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest ml-1">✓ Ready</span>
+                       )}
                     </div>
                     <span className={`text-xs font-mono font-bold ${p.id === myId ? 'text-amber-500' : 'text-white/60'}`}>
                       ${p.balance.toLocaleString()}
@@ -178,7 +183,7 @@ export function GameUI({
                     {state.currentItem?.name || 'Awaiting Sync...'}
                   </h2>
                   <p className="text-xs text-white/50 mt-4 max-w-sm mx-auto min-h-[40px] italic">
-                    "{state.currentItem?.description}"
+                    &quot;{state.currentItem?.description}&quot;
                   </p>
                   
                   <div className="mt-8 flex justify-center gap-8 border-t border-white/10 pt-6 px-4 w-fit mx-auto">
@@ -223,7 +228,7 @@ export function GameUI({
                     />
                     {!isHost && (
                       <button type="submit" className="shrink-0 px-4 sm:px-8 py-3 sm:py-4 bg-amber-500 text-black font-bold uppercase tracking-widest text-xs sm:text-[10px] md:text-sm rounded-lg hover:bg-amber-400 transition-colors shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-                        Submit
+                        {hasBid ? 'Update Bid' : 'Submit'}
                       </button>
                     )}
                   </form>

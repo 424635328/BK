@@ -20,8 +20,10 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     
     // Very rudimentary check: in a real app we'd decode JWT
     if (hostToken) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRole('host');
     } else if (guestToken) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRole('guest');
     } else {
       // Must join first

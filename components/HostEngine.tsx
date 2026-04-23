@@ -45,13 +45,12 @@ export default function HostEngine({ roomId }: { roomId: string }) {
       // 1. Sanitize state for broadcasting (hide bids during bidding, etc)
       // Actually, since all guests fetch the same state, we MUST sanitize it before broadcasting.
       const sanitized = JSON.parse(JSON.stringify(stateRef.current!));
-      if (sanitized.status === 'bidding') {
-        sanitized.bids = {}; // Hide bids
-        // Hide trueValue unless player is appraiser? 
-        // We can't hide it per-player in a broadcast model without creating a map.
-        // Let's create a map in state: `permissions: { guestId1: { trueValue } }`
-        // Simplified: Appraiser applies locally on guest side, so we send trueValue but Guests UI hides it unless they have the role.
-        // Flaw logged in README: Malicious guest can open dev tools.
+      if (sanitized.status === 'bidding' || sanitized.status === 'locking') {
+        const hidden: Record<string, any> = {};
+        for(const k in sanitized.bids) {
+           hidden[k] = "HIDDEN"; // Replace values so clients know a bid was placed without knowing amount
+        }
+        sanitized.bids = hidden; 
       }
 
       try {
@@ -148,7 +147,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
   }, [roomId]);
 
 
-  const startNewRound = (st: GameState) => {
+  function startNewRound(st: GameState) {
     st.round += 1;
     st.bids = {};
     st.status = 'bidding';
@@ -160,9 +159,9 @@ export default function HostEngine({ roomId }: { roomId: string }) {
     
     st.version++;
     setLocalState({ ...st });
-  };
+  }
 
-  const resolveRound = (st: GameState) => {
+  function resolveRound(st: GameState) {
     st.status = 'revealing';
     st.timer = 7; // show results for 7 seconds
     

@@ -121,4 +121,3 @@ sequenceDiagram
 3. **不可抗拒的脏数据（Dirty Read Window）**
    - **痛点**：Host 更新了 Round 2，但 Guest A 的下一次轮询由于 CDN 缓存或落到滞后实例，依然读到 Round 1 的最后几秒。
    - **弥补**：通过在 Client 端引入**状态单调递增逻辑 (Monotonic Versioning)**，若拉取到的 `roundId` < 当前缓存，直接抛弃旧数据，用前端表现掩盖一致性断层。
-# BK
