@@ -1,6 +1,6 @@
 import { Item, GameState } from '@/lib/game';
 import { motion } from 'motion/react';
-import { ShieldAlert, Info } from 'lucide-react';
+import { ShieldAlert, Info, Copy } from 'lucide-react';
 
 export function GameUI({
   state,
@@ -21,6 +21,15 @@ export function GameUI({
 }) {
   const me = myId ? state.players[myId] : null;
 
+  const copyRoomId = async () => {
+    try {
+      await navigator.clipboard.writeText(roomId);
+      // 可以在这里添加toast通知，但暂时只复制
+    } catch (err) {
+      console.error('Failed to copy room ID: ', err);
+    }
+  };
+
   if (state.status === 'lobby') {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-4 space-y-8">
@@ -30,6 +39,13 @@ export function GameUI({
           </div>
           <h1 className="text-[10px] text-white/40 uppercase tracking-[0.2em] mb-2">房间实例 (ROOM INSTANCE)</h1>
           <p className="text-4xl font-mono font-bold text-white tracking-widest">#{roomId}</p>
+          <button
+            onClick={copyRoomId}
+            className="mt-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white/80 hover:text-white text-sm font-mono uppercase tracking-widest transition-all flex items-center gap-2"
+          >
+            <Copy size={16} />
+            复制房间号
+          </button>
           <p className="text-white/40 text-[10px] uppercase font-mono mt-4">等待节点连接中 (Awaiting peer connections...)</p>
         </div>
         
