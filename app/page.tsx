@@ -171,14 +171,14 @@ export default function Home() {
               <div className="space-y-3">
                 <input
                   type="text"
-                  placeholder="游戏身份代号"
+                  placeholder="游戏身份代号(必填，自定义项)"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all placeholder:text-white/30 font-mono text-amber-500 text-sm sm:text-base"
                 />
                 <input
                   type="text"
-                  placeholder="房间密钥 (例如: ABC12)"
+                  placeholder="房间密钥 (必填，例如: ABC12)"
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value)}
                   className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all uppercase placeholder:text-white/30 font-mono text-amber-500 text-sm sm:text-base"
