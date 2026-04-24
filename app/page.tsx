@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { callRelay } from '@/lib/api';
-import { ROLES } from '@/lib/game';
+import { DEFAULT_ROOM_CONFIG, normalizeRoomConfig, ROLES, RoomConfig } from '@/lib/game';
 import { motion } from 'motion/react';
 
 export default function Home() {
@@ -14,12 +14,31 @@ export default function Home() {
   const [roleMode, setRoleMode] = useState(false);
   const [selectedRole, setSelectedRole] = useState<keyof typeof ROLES>('tycoon');
   const [showRules, setShowRules] = useState(false);
+  const [hostConfig, setHostConfig] = useState<RoomConfig>(() => normalizeRoomConfig(DEFAULT_ROOM_CONFIG));
+
+  const roleEntries = Object.entries(ROLES) as Array<[keyof typeof ROLES, (typeof ROLES)[keyof typeof ROLES]]>;
+
+  const updateHostConfig = (patch: Partial<RoomConfig>) => {
+    setHostConfig((prev) => normalizeRoomConfig({ ...prev, ...patch }));
+  };
+
+  const updateRoundItem = (roundIdx: number, key: 'referencePrice' | 'trueValue', value: number) => {
+    setHostConfig((prev) => {
+      const nextRoundItems = prev.roundItems.map((item, idx) => {
+        if (idx !== roundIdx) return item;
+        return { ...item, [key]: value };
+      });
+      return normalizeRoomConfig({ ...prev, roundItems: nextRoundItems });
+    });
+  };
 
   const createRoom = async () => {
     setLoading(true);
     try {
-      const res = await callRelay('create');
+      const finalConfig = normalizeRoomConfig(hostConfig);
+      const res = await callRelay('create', { roomConfig: finalConfig });
       localStorage.setItem('bidking_hostToken', res.hostToken);
+      localStorage.setItem(`bidking_roomConfig_${res.roomId}`, JSON.stringify(finalConfig));
       router.push(`/room?id=${res.roomId}`);
     } catch (e) {
       alert('创建房间失败，服务器异常请重试。 (Failed to create room)');
@@ -61,9 +80,80 @@ export default function Home() {
         <p className="text-[10px] font-mono text-white/40 uppercase tracking-tighter">分布式连线协议 | 沉浸式暗标博弈</p>
       </motion.div>
 
-      <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-6 sm:p-8 backdrop-blur-md relative overflow-hidden shadow-2xl">
+        <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-6 sm:p-8 backdrop-blur-md relative overflow-hidden shadow-2xl">
         {!roleMode ? (
           <div className="space-y-6 relative z-10">
+              <div className="space-y-4 p-4 border border-white/10 bg-black/30 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">开房参数预设</h3>
+                  <span className="text-[10px] font-mono text-white/40">仅主机生效</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <label className="space-y-1">
+                    <span className="block text-[10px] text-white/40 uppercase tracking-wider">等待时间(秒)</span>
+                    <input
+                      type="number"
+                      min={5}
+                      max={180}
+                      value={hostConfig.biddingSeconds}
+                      onChange={(e) => updateHostConfig({ biddingSeconds: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all text-amber-500 font-mono text-sm"
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="block text-[10px] text-white/40 uppercase tracking-wider">拍卖轮数</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={hostConfig.rounds}
+                      onChange={(e) => updateHostConfig({ rounds: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all text-amber-500 font-mono text-sm"
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="block text-[10px] text-white/40 uppercase tracking-wider">基础初始金</span>
+                    <input
+                      type="number"
+                      min={100}
+                      max={2000000}
+                      step={100}
+                      value={hostConfig.initialBalance}
+                      onChange={(e) => updateHostConfig({ initialBalance: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all text-amber-500 font-mono text-sm"
+                    />
+                  </label>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] text-white/40 uppercase tracking-wider">每轮价格配置 (参考价 / 真实值)</div>
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+                    {hostConfig.roundItems.map((item, idx) => (
+                      <div key={`round-${idx}`} className="grid grid-cols-[56px_1fr_1fr] gap-2 items-center">
+                        <span className="text-[10px] text-white/50 font-mono">R{idx + 1}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={10}
+                          value={item.referencePrice}
+                          onChange={(e) => updateRoundItem(idx, 'referencePrice', Number(e.target.value))}
+                          className="w-full px-2 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all text-white text-xs font-mono"
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          step={10}
+                          value={item.trueValue}
+                          onChange={(e) => updateRoundItem(idx, 'trueValue', Number(e.target.value))}
+                          className="w-full px-2 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-blue-300 text-xs font-mono"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <button
                 onClick={createRoom}
                 disabled={loading}
@@ -110,14 +200,14 @@ export default function Home() {
           >
             <h3 className="text-[10px] font-bold text-center text-white/40 uppercase tracking-widest">选择你的被动协议特征 (职业)</h3>
             <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-              {(Object.keys(ROLES) as Array<keyof typeof ROLES>).map((k) => (
+              {roleEntries.map(([k, role]) => (
                 <button
                   key={k}
                   onClick={() => setSelectedRole(k as keyof typeof ROLES)}
                   className={`w-full p-4 text-left border rounded-xl transition-all block ${selectedRole === k ? 'border-amber-500/50 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'border-white/10 bg-black/40 hover:bg-white/5'}`}
                 >
-                  <div className="font-bold text-white tracking-wide text-sm">{ROLES[k as keyof typeof ROLES].name}</div>
-                  <div className="text-[11px] text-white/50 mt-1 font-mono leading-relaxed">{ROLES[k as keyof typeof ROLES].desc}</div>
+                  <div className="font-bold text-white tracking-wide text-sm">{role.name}</div>
+                  <div className="text-[11px] text-white/50 mt-1 font-mono leading-relaxed">{role.desc}</div>
                 </button>
               ))}
             </div>
@@ -157,14 +247,14 @@ export default function Home() {
               <section>
                 <h3 className="text-amber-400 font-bold mb-2 tracking-widest">【🎯 核心目标】</h3>
                 <p>参与地下暗网拍卖，运用你的初始资金竞拍神秘藏品。在拍卖中尽力用低价捡漏“真品”，或者忽悠别人高价买下“赝品”。</p>
-                <p className="mt-1 text-white">协议终止时（5轮过后），<span className="text-amber-500 font-bold">【结余资金】加【拍下藏品的真实价值】总净资产最高者，获得胜利！</span></p>
+                <p className="mt-1 text-white">协议终止时（完成配置轮数后），<span className="text-amber-500 font-bold">【结余资金】加【拍下藏品的真实价值】总净资产最高者，获得胜利！</span></p>
               </section>
               
               <section className="bg-white/5 p-4 rounded-lg border border-white/10">
                 <h3 className="text-teal-400 font-bold mb-2 tracking-widest">【⚖️ 执行流程】</h3>
                 <ul className="list-decimal list-inside space-y-2 text-white/70">
                   <li><strong>揭晓拍品：</strong>每回合开始，公布1件拍卖品及其“公开参考市值”。</li>
-                  <li><strong>暗标互搏：</strong>在15秒内秘密输入你的“出价”。所有人互相不知道出价金额。主机节点仅作见证，不参与竞价。</li>
+                  <li><strong>暗标互搏：</strong>在房主设定的等待时间内秘密输入“出价”。所有人互相不知道出价金额。主机节点仅作见证，不参与竞价。</li>
                   <li><strong>锁定结算：</strong>时间耗尽后，出价最高者必须强制购买该藏品。</li>
                   <li><strong>真相大白：</strong>立刻公开赢家的出价，并揭晓该藏品的<span className="text-blue-400 font-bold">【内部真实市值】</span>（有可能血赚，也有可能血亏）。</li>
                 </ul>
@@ -173,9 +263,15 @@ export default function Home() {
               <section>
                 <h3 className="text-amber-400 font-bold mb-2 tracking-widest">【🧬 身份特性 (职业)】</h3>
                 <ul className="space-y-3">
-                  <li className="bg-black/40 p-3 rounded border border-white/5"><span className="text-white font-bold">💰 富豪：</span>初始资金 <span className="text-amber-500">$6000</span>。简单粗暴的资本家，用碾压级别的资金抢走一切。</li>
-                  <li className="bg-black/40 p-3 rounded border border-white/5"><span className="text-white font-bold">🔍 鉴定师：</span>初始资金 <span className="text-amber-500">$5000</span>。<span className="text-blue-400">被动能力[火眼金睛]</span>：在出价阶段，右侧情报流会直接显示藏品的内部真实价值，稳赚不赔的核心人物。</li>
-                  <li className="bg-black/40 p-3 rounded border border-white/5"><span className="text-white font-bold">🃏 赌徒：</span>初始资金 <span className="text-amber-500">$3500</span>。资金匮乏。但如果全场出现<span className="text-red-400">平局出价</span>且有赌徒参与，系统强行判定赌徒获胜！</li>
+                  {roleEntries.map(([roleId, role]) => (
+                    <li key={roleId} className="bg-black/40 p-3 rounded border border-white/5">
+                      <span className="text-white font-bold">{role.name}：</span>
+                      基础资金倍率 <span className="text-amber-500 font-bold">x{role.balanceMultiplier.toFixed(2)}</span>。
+                      {role.ability === 'appraiser_insight' && <span className="text-blue-400"> 被动能力[火眼金睛]：可直接看到真实价值。</span>}
+                      {role.ability === 'tie_breaker' && <span className="text-red-400"> 被动能力[绝境翻盘]：最高出价平局时优先获胜。</span>}
+                      {role.ability === 'none' && <span className="text-white/70"> {role.desc}</span>}
+                    </li>
+                  ))}
                 </ul>
               </section>
             </div>

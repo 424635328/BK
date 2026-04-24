@@ -1,4 +1,4 @@
-import { Item, GameState } from '@/lib/game';
+import { GameState, ROLES } from '@/lib/game';
 import { motion } from 'motion/react';
 import { ShieldAlert, Info, Copy } from 'lucide-react';
 import { useState } from 'react';
@@ -21,6 +21,8 @@ export function GameUI({
   hasBid?: boolean;
 }) {
   const me = myId ? state.players[myId] : null;
+  const meRole = me ? ROLES[me.roleId] : null;
+  const totalRounds = state.config.rounds;
   const [copied, setCopied] = useState(false);
 
   const copyRoomId = async () => {
@@ -66,6 +68,24 @@ export function GameUI({
           
           <p className="text-white/40 text-[10px] uppercase font-mono mt-4">等待节点连接中 (Awaiting peer connections...)</p>
         </div>
+
+        <div className="w-full max-w-xl p-4 bg-black/30 border border-white/10 rounded-xl">
+          <div className="text-[10px] text-white/40 uppercase tracking-widest mb-3">当前房间参数</div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
+            <div className="p-3 rounded border border-white/10 bg-white/5">
+              <div className="text-white/40 mb-1">等待时间</div>
+              <div className="text-amber-500 font-bold">{state.config.biddingSeconds}s</div>
+            </div>
+            <div className="p-3 rounded border border-white/10 bg-white/5">
+              <div className="text-white/40 mb-1">拍卖轮数</div>
+              <div className="text-amber-500 font-bold">{state.config.rounds}</div>
+            </div>
+            <div className="p-3 rounded border border-white/10 bg-white/5">
+              <div className="text-white/40 mb-1">基础初始金</div>
+              <div className="text-amber-500 font-bold">${state.config.initialBalance.toLocaleString()}</div>
+            </div>
+          </div>
+        </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-2xl px-4">
           {Object.values(state.players).length === 0 && (
@@ -107,7 +127,7 @@ export function GameUI({
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-widest uppercase mb-1">竞拍之王 <span className="text-amber-500">v1.1.0</span></h1>
-            <p className="text-[10px] font-mono text-white/40 uppercase tracking-tighter">第 {state.round} / 5 轮 • 房间 {roomId}</p>
+            <p className="text-[10px] font-mono text-white/40 uppercase tracking-tighter">第 {state.round} / {totalRounds} 轮 • 房间 {roomId}</p>
           </div>
         </div>
         {me && (
@@ -194,7 +214,7 @@ export function GameUI({
             <div className="flex-1 bg-gradient-to-b from-white/5 to-transparent border border-white/10 rounded-2xl p-6 lg:p-8 flex flex-col items-center relative overflow-hidden min-h-[500px]">
               <div className="absolute top-4 left-4 flex gap-2 z-10 hidden sm:flex">
                 <span className="px-2 py-1 bg-red-500/20 text-red-500 border border-red-500/40 rounded text-[10px] font-bold uppercase tracking-widest">暗标进行中</span>
-                <span className="px-2 py-1 bg-white/10 text-white/60 border border-white/10 rounded text-[10px] font-bold uppercase tracking-widest">第 {state.round}/5 轮</span>
+                <span className="px-2 py-1 bg-white/10 text-white/60 border border-white/10 rounded text-[10px] font-bold uppercase tracking-widest">第 {state.round}/{totalRounds} 轮</span>
               </div>
               
               {/* TIMER */}
@@ -319,7 +339,7 @@ export function GameUI({
                     真实价值: <span className="font-mono text-amber-500 font-bold">${state.currentItem?.trueValue.toLocaleString()}</span>. <br/>作为中立主机，你负责见证整场博弈且不用参与暗标竞拍。
                   </p>
                 </div>
-              ) : me?.roleId === 'appraiser' ? (
+              ) : meRole?.ability === 'appraiser_insight' ? (
                 <div className="relative p-4 border border-blue-500/20 bg-blue-500/5 rounded-lg">
                   <div className="text-[10px] text-blue-400 uppercase mb-2 font-bold flex items-center gap-2"><Info size={12}/> 被动技能: 火眼金睛</div>
                   <p className="text-xs leading-relaxed text-blue-200/70 italic font-mono text-pretty break-all">
@@ -341,7 +361,8 @@ export function GameUI({
                   STRATEGY: Client-As-Host<br/>
                   SYNC: Gossip Polling (800ms)<br/>
                   ENGINE: Stateless Node.js Ext<br/>
-                  GARBAGE_COL: LRU Memory Decay
+                  ROOM_WAIT: {state.config.biddingSeconds}S<br/>
+                  ROOM_ROUNDS: {state.config.rounds}
                 </div>
               </div>
             </div>

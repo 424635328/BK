@@ -2,7 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { callRelay } from '@/lib/api';
-import { GameState, GAME_ITEMS, ROLES, Player } from '@/lib/game';
+import {
+  buildRoundItemFromConfig,
+  DEFAULT_ROOM_CONFIG,
+  GameState,
+  getStartingBalance,
+  isRoleId,
+  normalizeRoomConfig,
+  ROLES,
+  RoleId,
+  RoomConfig,
+} from '@/lib/game';
 import { GameUI } from './SharedGameUI';
 
 export default function HostEngine({ roomId }: { roomId: string }) {
@@ -10,28 +20,82 @@ export default function HostEngine({ roomId }: { roomId: string }) {
   const [localState, setLocalState] = useState<GameState | null>(null);
   const stateRef = useRef<GameState | null>(null);
 
+  const persistState = (st: GameState) => {
+    stateRef.current = st;
+    setLocalState({ ...st });
+    localStorage.setItem(`bidking_db_${roomId}`, JSON.stringify(st));
+  };
+
+  const parseRoomConfigFromStorage = (): RoomConfig => {
+    const raw = localStorage.getItem(`bidking_roomConfig_${roomId}`);
+    if (!raw) return normalizeRoomConfig(DEFAULT_ROOM_CONFIG);
+    try {
+      return normalizeRoomConfig(JSON.parse(raw) as Partial<RoomConfig>);
+    } catch (e) {
+      return normalizeRoomConfig(DEFAULT_ROOM_CONFIG);
+    }
+  };
+
+  const sanitizeLoadedState = (rawState: Partial<GameState>, fallbackConfig: RoomConfig): GameState => {
+    const config = normalizeRoomConfig(rawState.config ?? fallbackConfig);
+    const players = Object.fromEntries(
+      Object.entries(rawState.players ?? {}).map(([id, p]) => {
+        const roleId: RoleId = isRoleId(String(p.roleId)) ? p.roleId : 'tycoon';
+        const balance = Number.isFinite(p.balance) ? Math.max(0, Math.round(p.balance)) : getStartingBalance(roleId, config.initialBalance);
+        return [
+          id,
+          {
+            id,
+            name: typeof p.name === 'string' && p.name.trim() ? p.name : '匿名节点',
+            balance,
+            roleId,
+            inventory: Array.isArray(p.inventory) ? p.inventory : [],
+          },
+        ];
+      })
+    );
+
+    return {
+      version: Number.isFinite(rawState.version) ? Math.max(1, Math.round(rawState.version ?? 1)) : 1,
+      status: rawState.status ?? 'lobby',
+      round: Number.isFinite(rawState.round) ? Math.max(0, Math.round(rawState.round ?? 0)) : 0,
+      config,
+      players,
+      currentItem: rawState.currentItem ?? null,
+      bids: rawState.bids ?? {},
+      winnerHistory: Array.isArray(rawState.winnerHistory) ? rawState.winnerHistory : [],
+      timer: Number.isFinite(rawState.timer) ? Math.max(0, Math.round(rawState.timer ?? 0)) : 0,
+    };
+  };
+
   // Initialize Host Database
   useEffect(() => {
     const saved = localStorage.getItem(`bidking_db_${roomId}`);
+    const roomConfig = parseRoomConfigFromStorage();
+
     if (saved) {
       try {
-        stateRef.current = JSON.parse(saved);
-        setLocalState(stateRef.current);
+        const parsed = JSON.parse(saved) as Partial<GameState>;
+        const sanitized = sanitizeLoadedState(parsed, roomConfig);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        persistState(sanitized);
       } catch (e) {}
     }
 
     if (!stateRef.current) {
-      stateRef.current = {
+      const initialState: GameState = {
         version: 1,
         status: 'lobby',
         round: 0,
+        config: roomConfig,
         players: {},
         currentItem: null,
         bids: {},
         winnerHistory: [],
         timer: 0
       };
-      setLocalState(stateRef.current);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      persistState(initialState);
     }
   }, [roomId]);
 
@@ -64,12 +128,12 @@ export default function HostEngine({ roomId }: { roomId: string }) {
         if (res.pendingJoins?.length > 0 && st.status === 'lobby') {
           for (const j of res.pendingJoins) {
             if (!st.players[j.guestId]) {
-              const roleInfo = ROLES[j.roleId as keyof typeof ROLES] || ROLES.tycoon;
+              const roleId: RoleId = isRoleId(String(j.roleId)) ? j.roleId : 'tycoon';
               st.players[j.guestId] = {
                 id: j.guestId,
-                name: j.name,
-                balance: roleInfo.startBalance,
-                roleId: j.roleId,
+                name: typeof j.name === 'string' && j.name.trim() ? j.name.trim() : '匿名节点',
+                balance: getStartingBalance(roleId, st.config.initialBalance),
+                roleId,
                 inventory: []
               };
               modified = true;
@@ -82,7 +146,11 @@ export default function HostEngine({ roomId }: { roomId: string }) {
           for (const b of res.pendingBids) {
             // Ignore stale round bids
             if (b.round === st.round) {
-              st.bids[b.guestId] = b.amount;
+              const bidder = st.players[b.guestId];
+              if (!bidder) continue;
+              const amount = Number(b.amount);
+              if (!Number.isFinite(amount) || amount < 0) continue;
+              st.bids[b.guestId] = Math.min(Math.round(amount), bidder.balance);
               modified = true;
             }
           }
@@ -90,8 +158,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
 
         if (modified) {
           st.version++;
-          setLocalState({ ...st });
-          localStorage.setItem(`bidking_db_${roomId}`, JSON.stringify(st));
+          persistState(st);
         }
 
       } catch (e) {
@@ -115,31 +182,33 @@ export default function HostEngine({ roomId }: { roomId: string }) {
         st.timer -= 1;
         if (st.timer <= 0) {
           st.status = 'locking';
-          st.timer = 2; // 2 seconds safety buffer 
+          st.timer = st.config.lockSeconds;
         }
         st.version++;
-        setLocalState({ ...st });
-        localStorage.setItem(`bidking_db_${roomId}`, JSON.stringify(st));
+        persistState(st);
       } else if (st.status === 'locking') {
         st.timer -= 1;
         if (st.timer <= 0) {
           resolveRound(st);
+          return;
         }
         st.version++;
-        setLocalState({ ...st });
-        localStorage.setItem(`bidking_db_${roomId}`, JSON.stringify(st));
+        persistState(st);
       } else if (st.status === 'revealing') {
         st.timer -= 1;
         if (st.timer <= 0) {
-          if (st.round >= 5) {
+          if (st.round >= st.config.rounds) {
             st.status = 'game_over';
+            st.timer = 0;
+            st.version++;
+            persistState(st);
           } else {
              startNewRound(st);
           }
+          return;
         }
         st.version++;
-        setLocalState({ ...st });
-        localStorage.setItem(`bidking_db_${roomId}`, JSON.stringify(st));
+        persistState(st);
       }
 
     }, 1000);
@@ -148,22 +217,27 @@ export default function HostEngine({ roomId }: { roomId: string }) {
 
 
   function startNewRound(st: GameState) {
+    if (st.round >= st.config.rounds) {
+      st.status = 'game_over';
+      st.timer = 0;
+      st.version++;
+      persistState(st);
+      return;
+    }
+
     st.round += 1;
     st.bids = {};
     st.status = 'bidding';
-    st.timer = 45; // 45 seconds to bid
-    
-    // Pick random item
-    const available = GAME_ITEMS.filter(item => !st.winnerHistory.find(w => w.item.id === item.id));
-    st.currentItem = available[Math.floor(Math.random() * available.length)] || GAME_ITEMS[0];
+    st.timer = st.config.biddingSeconds;
+    st.currentItem = buildRoundItemFromConfig(st.round, st.config);
     
     st.version++;
-    setLocalState({ ...st });
+    persistState(st);
   }
 
   function resolveRound(st: GameState) {
     st.status = 'revealing';
-    st.timer = 7; // show results for 7 seconds
+    st.timer = st.config.revealSeconds;
     
     // Determine winner
     let highest = -1;
@@ -186,10 +260,12 @@ export default function HostEngine({ roomId }: { roomId: string }) {
       if (winners.length === 1) {
         finalWinner = winners[0];
       } else {
-        // Gambler trait check logic
-        const gamblers = winners.filter(w => st.players[w].roleId === 'gambler');
-        if (gamblers.length === 1) {
-          finalWinner = gamblers[0];
+        const tieBreakers = winners.filter((winnerId) => {
+          const role = ROLES[st.players[winnerId]?.roleId];
+          return role?.ability === 'tie_breaker';
+        });
+        if (tieBreakers.length === 1) {
+          finalWinner = tieBreakers[0];
         } else {
           // Absolute tie, no one gets it or random? Let's just pick random.
           finalWinner = winners[Math.floor(Math.random() * winners.length)];
@@ -211,14 +287,14 @@ export default function HostEngine({ roomId }: { roomId: string }) {
     } else {
        st.winnerHistory.push({
           round: st.round,
-          item: st.currentItem!,
+          item: st.currentItem ?? buildRoundItemFromConfig(st.round, st.config),
           winnerId: null,
           winningBid: 0
         });
     }
 
     st.version++;
-    setLocalState({ ...st });
+    persistState(st);
   };
 
   if (!localState) return null;

@@ -6,11 +6,75 @@ export interface Item {
   description: string;
 }
 
+export interface RoundItemConfig {
+  name: string;
+  description: string;
+  referencePrice: number;
+  trueValue: number;
+}
+
+export interface RoomConfig {
+  biddingSeconds: number;
+  rounds: number;
+  initialBalance: number;
+  lockSeconds: number;
+  revealSeconds: number;
+  roundItems: RoundItemConfig[];
+}
+
+export interface RoleDefinition {
+  name: string;
+  desc: string;
+  balanceMultiplier: number;
+  ability: 'none' | 'appraiser_insight' | 'tie_breaker';
+}
+
+export const ROLES = {
+  tycoon: {
+    name: '💰 富豪 (Tycoon)',
+    desc: '资本优势型。开局资金倍率 x1.30。',
+    balanceMultiplier: 1.3,
+    ability: 'none',
+  },
+  appraiser: {
+    name: '🔍 鉴定师 (Appraiser)',
+    desc: '信息优势型。可直接查看拍品真实价值，资金倍率 x1.00。',
+    balanceMultiplier: 1,
+    ability: 'appraiser_insight',
+  },
+  gambler: {
+    name: '🃏 赌徒 (Gambler)',
+    desc: '高风险型。若最高出价平局且你在其中，自动胜出，资金倍率 x0.75。',
+    balanceMultiplier: 0.75,
+    ability: 'tie_breaker',
+  },
+  investor: {
+    name: '📈 投资人 (Investor)',
+    desc: '稳健增益型。无额外技能，资金倍率 x1.15。',
+    balanceMultiplier: 1.15,
+    ability: 'none',
+  },
+  broker: {
+    name: '🤝 经纪人 (Broker)',
+    desc: '中庸平衡型。无额外技能，资金倍率 x1.05。',
+    balanceMultiplier: 1.05,
+    ability: 'none',
+  },
+  scrapper: {
+    name: '🧰 捡漏客 (Scrapper)',
+    desc: '逆袭型。无额外技能，资金倍率 x0.90。',
+    balanceMultiplier: 0.9,
+    ability: 'none',
+  },
+} as const satisfies Record<string, RoleDefinition>;
+
+export type RoleId = keyof typeof ROLES;
+
 export interface Player {
   id: string;
   name: string;
   balance: number;
-  roleId: 'tycoon' | 'appraiser' | 'gambler';
+  roleId: RoleId;
   inventory: Item[];
 }
 
@@ -19,7 +83,8 @@ export type GamePhase = 'lobby' | 'prepare' | 'bidding' | 'locking' | 'revealing
 export interface GameState {
   version: number; // Important for clients to ignore stale state
   status: GamePhase;
-  round: number; // Max 5
+  round: number;
+  config: RoomConfig;
   players: Record<string, Player>;
   currentItem: Item | null;
   // Bids are hidden during 'bidding' from other players. 
@@ -38,10 +103,85 @@ export const GAME_ITEMS: Item[] = [
   { id: 'item6', name: '黑胡子海盗金币 (Blackbeard\'s Gold Coin)', baseValue: 1000, trueValue: 5000, description: '沉重，磨损严重，但绝对属于真品。' }
 ];
 
-export const ROLES = {
-  tycoon: { name: '💰 富豪 (Tycoon)', desc: '开局自带额外 $1000 资金。用钱砸死他们。', startBalance: 6000 },
-  appraiser: { name: '🔍 鉴定师 (Appraiser)', desc: '你的火眼金睛能直接看穿拍品的【真实价值】。', startBalance: 5000 },
-  gambler: { name: '🃏 赌徒 (Gambler)', desc: '资金极少，但出价时如果出现平局，永远是你获胜。', startBalance: 3500 },
+export const INITIAL_BALANCE = 5000;
+export const DEFAULT_ROUNDS = 5;
+export const DEFAULT_BIDDING_SECONDS = 45;
+export const DEFAULT_LOCK_SECONDS = 2;
+export const DEFAULT_REVEAL_SECONDS = 7;
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(parsed)));
+}
+
+export function buildDefaultRoundItem(index: number): RoundItemConfig {
+  const template = GAME_ITEMS[index % GAME_ITEMS.length];
+  return {
+    name: template.name,
+    description: template.description,
+    referencePrice: template.baseValue,
+    trueValue: template.trueValue,
+  };
+}
+
+export const DEFAULT_ROOM_CONFIG: RoomConfig = {
+  biddingSeconds: DEFAULT_BIDDING_SECONDS,
+  rounds: DEFAULT_ROUNDS,
+  initialBalance: INITIAL_BALANCE,
+  lockSeconds: DEFAULT_LOCK_SECONDS,
+  revealSeconds: DEFAULT_REVEAL_SECONDS,
+  roundItems: Array.from({ length: DEFAULT_ROUNDS }, (_, idx) => buildDefaultRoundItem(idx)),
 };
 
-export const INITIAL_BALANCE = 5000;
+export function normalizeRoomConfig(input?: Partial<RoomConfig> | null): RoomConfig {
+  const rounds = clampNumber(input?.rounds, DEFAULT_ROOM_CONFIG.rounds, 1, 12);
+  const biddingSeconds = clampNumber(input?.biddingSeconds, DEFAULT_ROOM_CONFIG.biddingSeconds, 5, 180);
+  const initialBalance = clampNumber(input?.initialBalance, DEFAULT_ROOM_CONFIG.initialBalance, 100, 2000000);
+  const lockSeconds = clampNumber(input?.lockSeconds, DEFAULT_ROOM_CONFIG.lockSeconds, 1, 15);
+  const revealSeconds = clampNumber(input?.revealSeconds, DEFAULT_ROOM_CONFIG.revealSeconds, 3, 30);
+
+  const sourceRoundItems = Array.isArray(input?.roundItems) ? input.roundItems : [];
+  const roundItems = Array.from({ length: rounds }, (_, idx) => {
+    const source = sourceRoundItems[idx] as Partial<RoundItemConfig & Item> | undefined;
+    const fallback = buildDefaultRoundItem(idx);
+    const name = typeof source?.name === 'string' && source.name.trim() ? source.name.trim() : fallback.name;
+    const description = typeof source?.description === 'string' && source.description.trim()
+      ? source.description.trim()
+      : fallback.description;
+    const referencePrice = clampNumber(source?.referencePrice ?? source?.baseValue, fallback.referencePrice, 0, 2000000);
+    const trueValue = clampNumber(source?.trueValue, fallback.trueValue, 0, 2000000);
+    return { name, description, referencePrice, trueValue };
+  });
+
+  return {
+    rounds,
+    biddingSeconds,
+    initialBalance,
+    lockSeconds,
+    revealSeconds,
+    roundItems,
+  };
+}
+
+export function buildRoundItemFromConfig(round: number, config: RoomConfig): Item {
+  const idx = Math.max(0, round - 1);
+  const fallback = buildDefaultRoundItem(idx);
+  const source = config.roundItems[idx] ?? fallback;
+  return {
+    id: `round-${round}-${idx}`,
+    name: source.name,
+    description: source.description,
+    baseValue: source.referencePrice,
+    trueValue: source.trueValue,
+  };
+}
+
+export function isRoleId(roleId: string): roleId is RoleId {
+  return roleId in ROLES;
+}
+
+export function getStartingBalance(roleId: RoleId, initialBalance: number): number {
+  const role = ROLES[roleId] ?? ROLES.tycoon;
+  return Math.max(0, Math.round(initialBalance * role.balanceMultiplier));
+}
