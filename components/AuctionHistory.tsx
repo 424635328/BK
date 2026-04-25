@@ -429,25 +429,25 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
                   animate={{ opacity: 1, y: 0 }}
                   className="grid grid-cols-2 md:grid-cols-4 gap-3"
                 >
-                  <div className="p-4 bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl">
-                    <div className="text-green-400/80 text-xs uppercase tracking-wider mb-1">总轮数</div>
-                    <div className="text-2xl font-bold text-white font-mono">{filteredAndSortedHistory.length}</div>
+                  <div className="p-4 bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-2xl flex flex-col items-center justify-center">
+                    <div className="text-green-400/80 text-xs uppercase tracking-wider mb-2">总轮数</div>
+                    <div className="text-3xl font-bold text-white font-mono">{filteredAndSortedHistory.length}</div>
                   </div>
-                  <div className="p-4 bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl">
-                    <div className="text-amber-400/80 text-xs uppercase tracking-wider mb-1">总成交</div>
-                    <div className="text-2xl font-bold text-white font-mono">
+                  <div className="p-4 bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl flex flex-col items-center justify-center">
+                    <div className="text-amber-400/80 text-xs uppercase tracking-wider mb-2">总成交</div>
+                    <div className="text-3xl font-bold text-white font-mono">
                       {filteredAndSortedHistory.filter(r => r.status === 'completed' || r.status === 'scrapper_take').length}
                     </div>
                   </div>
-                  <div className="p-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/20 rounded-xl">
-                    <div className="text-blue-400/80 text-xs uppercase tracking-wider mb-1">总成交金额</div>
-                    <div className="text-2xl font-bold text-white font-mono">
+                  <div className="p-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/20 rounded-2xl flex flex-col items-center justify-center">
+                    <div className="text-blue-400/80 text-xs uppercase tracking-wider mb-2">总成交金额</div>
+                    <div className="text-3xl font-bold text-white font-mono">
                       ¥{filteredAndSortedHistory.reduce((sum, r) => sum + r.winningBid, 0).toLocaleString()}
                     </div>
                   </div>
-                  <div className="p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl">
-                    <div className="text-purple-400/80 text-xs uppercase tracking-wider mb-1">总参与人次</div>
-                    <div className="text-2xl font-bold text-white font-mono">
+                  <div className="p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-2xl flex flex-col items-center justify-center">
+                    <div className="text-purple-400/80 text-xs uppercase tracking-wider mb-2">总参与人次</div>
+                    <div className="text-3xl font-bold text-white font-mono">
                       {filteredAndSortedHistory.reduce((sum, r) => sum + r.bids.length, 0)}
                     </div>
                   </div>
@@ -517,80 +517,30 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
                         layout
                       >
                         <div
-                          className={`p-5 rounded-2xl border transition-all cursor-pointer ${
+                          className={`p-6 rounded-3xl border transition-all cursor-pointer ${
                             selectedRound === round.round
                               ? 'bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-blue-500/40 shadow-xl shadow-blue-500/10'
                               : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
                           }`}
                           onClick={() => setSelectedRound(selectedRound === round.round ? null : round.round)}
                         >
-                          <div className="flex items-start justify-between gap-5">
-                            <div className="flex-1 min-w-0">
-                              {/* 头部标签 */}
-                              <div className="flex items-center gap-2 flex-wrap mb-3">
-                                <span className="px-2.5 py-1 bg-amber-500/20 text-amber-400 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-                                  <Trophy size={14} />
-                                  第 {round.round} 轮
-                                </span>
-                                <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 ${statusBadge.color}`}>
-                                  {statusBadge.icon}
-                                  {statusBadge.label}
-                                </span>
-                                <span className="px-2.5 py-1 bg-white/5 text-white/60 rounded-lg text-xs font-mono flex items-center gap-1.5">
-                                  <Clock size={12} />
-                                  {formatDuration(round.roundStartTime, round.roundEndTime)}
-                                </span>
-                                <span className="px-2 py-0.5 text-white/40 text-xs font-mono">
-                                  {formatDateTime(round.roundStartTime)}
-                                </span>
-                              </div>
-
-                              {/* 拍品名称 */}
-                              <h4 className="font-bold text-lg text-white mb-1.5 group-hover:text-amber-400 transition-colors">
-                                {round.item.name}
-                              </h4>
-                              <p className="text-white/40 text-sm line-clamp-2 mb-4">{round.item.description}</p>
-
-                              {/* 关键数据网格 */}
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {round.winnerName && (
-                                  <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                                    <div className="text-white/50 text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
-                                      <User size={12} />
-                                      中标者
-                                    </div>
-                                    <div className="text-amber-400 font-bold text-sm truncate">{round.winnerName}</div>
-                                  </div>
-                                )}
-                                <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                                  <div className="text-white/50 text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
-                                    <DollarSign size={12} />
-                                    成交价
-                                  </div>
-                                  <div className="text-white font-mono font-bold text-sm">¥{round.winningBid.toLocaleString()}</div>
-                                </div>
-                                {round.actualPayment !== round.winningBid && (
-                                  <div className="p-3 bg-green-500/10 rounded-xl border border-green-500/20">
-                                    <div className="text-green-400/70 text-xs uppercase tracking-wider mb-1">实际支付</div>
-                                    <div className="text-green-400 font-mono font-bold text-sm">¥{round.actualPayment.toLocaleString()}</div>
-                                  </div>
-                                )}
-                                <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                                  <div className="text-blue-400/70 text-xs uppercase tracking-wider mb-1">真实价值</div>
-                                  <div className="text-blue-400 font-mono font-bold text-sm">¥{round.item.trueValue.toLocaleString()}</div>
-                                </div>
-                                {round.profitLoss !== undefined && (
-                                  <div className={`p-3 rounded-xl border ${round.profitLoss >= 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
-                                    <div className={`text-xs uppercase tracking-wider mb-1 flex items-center gap-1 ${round.profitLoss >= 0 ? 'text-green-400/70' : 'text-red-400/70'}`}>
-                                      <TrendingUp size={12} className={round.profitLoss < 0 ? 'rotate-180' : ''} />
-                                      盈亏
-                                    </div>
-                                    <div className={`font-mono font-bold text-sm ${round.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                      {round.profitLoss >= 0 ? '+' : ''}¥{round.profitLoss.toLocaleString()}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
+                          <div className="flex items-start justify-between gap-5 mb-5">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="px-4 py-2 bg-amber-500/20 text-amber-400 rounded-xl text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                                <Trophy size={18} />
+                                第 {round.round} 轮
+                              </span>
+                              <span className={`px-4 py-2 rounded-xl text-sm font-bold border flex items-center gap-2 ${statusBadge.color}`}>
+                                {statusBadge.icon}
+                                {statusBadge.label}
+                              </span>
+                              <span className="px-4 py-2 bg-white/5 text-white/60 rounded-xl text-sm font-mono flex items-center gap-2">
+                                <Clock size={16} />
+                                {formatDuration(round.roundStartTime, round.roundEndTime)}
+                              </span>
+                              <span className="px-3 py-2 text-white/40 text-sm font-mono">
+                                {formatDateTime(round.roundStartTime)}
+                              </span>
                             </div>
 
                             {/* 展开按钮 */}
@@ -601,18 +551,61 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
                                 e.stopPropagation();
                                 setSelectedRound(selectedRound === round.round ? null : round.round);
                               }}
-                              className={`p-2.5 rounded-xl border transition-all ${
+                              className={`p-4 rounded-2xl border transition-all ${
                                 selectedRound === round.round
                                   ? 'bg-blue-500/20 border-blue-500/30 text-blue-400'
                                   : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
                               }`}
                             >
                               {selectedRound === round.round ? (
-                                <ChevronUp size={20} />
+                                <ChevronUp size={24} />
                               ) : (
-                                <ChevronDown size={20} />
+                                <ChevronDown size={24} />
                               )}
                             </motion.button>
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            {/* 拍品名称 */}
+                            <h4 className="font-bold text-3xl text-white mb-3 group-hover:text-amber-400 transition-colors">
+                              {round.item.name}
+                            </h4>
+                            <p className="text-white/50 text-lg line-clamp-2 mb-6">{round.item.description}</p>
+
+                            {/* 关键数据 - 垂直卡片样式 */}
+                            <div className="flex flex-wrap gap-4">
+                              {round.winnerName && (
+                                <div className="flex flex-col items-center justify-center px-5 py-4 bg-white/5 rounded-2xl border border-white/5 min-w-[120px]">
+                                  <div className="text-white/60 text-xs uppercase tracking-wider mb-2">中标者</div>
+                                  <div className="text-amber-400 font-bold text-lg">{round.winnerName}</div>
+                                </div>
+                              )}
+                              <div className="flex flex-col items-center justify-center px-5 py-4 bg-white/5 rounded-2xl border border-white/5 min-w-[120px]">
+                                <div className="text-white/60 text-xs uppercase tracking-wider mb-2">成交价</div>
+                                <div className="text-white font-mono font-bold text-lg">¥{round.winningBid.toLocaleString()}</div>
+                              </div>
+                              {round.actualPayment !== round.winningBid && (
+                                <div className="flex flex-col items-center justify-center px-5 py-4 bg-green-500/10 rounded-2xl border border-green-500/20 min-w-[120px]">
+                                  <div className="text-green-400/80 text-xs uppercase tracking-wider mb-2">实际支付</div>
+                                  <div className="text-green-400 font-mono font-bold text-lg">¥{round.actualPayment.toLocaleString()}</div>
+                                </div>
+                              )}
+                              <div className="flex flex-col items-center justify-center px-5 py-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 min-w-[120px]">
+                                <div className="text-blue-400/80 text-xs uppercase tracking-wider mb-2">真实价值</div>
+                                <div className="text-blue-400 font-mono font-bold text-lg">¥{round.item.trueValue.toLocaleString()}</div>
+                              </div>
+                              {round.profitLoss !== undefined && (
+                                <div className={`flex flex-col items-center justify-center px-5 py-4 rounded-2xl border min-w-[120px] ${round.profitLoss >= 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                                  <div className={`text-xs uppercase tracking-wider mb-2 flex items-center gap-1 ${round.profitLoss >= 0 ? 'text-green-400/80' : 'text-red-400/80'}`}>
+                                    <TrendingUp size={16} className={round.profitLoss < 0 ? 'rotate-180' : ''} />
+                                    盈亏
+                                  </div>
+                                  <div className={`font-mono font-bold text-lg ${round.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {round.profitLoss >= 0 ? '+' : ''}¥{round.profitLoss.toLocaleString()}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           {/* 展开的详细信息 */}
@@ -624,17 +617,17 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
                                 exit={{ height: 0, opacity: 0 }}
                                 className="overflow-hidden"
                               >
-                                <div className="mt-5 pt-5 border-t border-white/10">
-                                  <div className="flex items-center justify-between mb-4">
-                                    <h5 className="text-white/60 text-xs uppercase tracking-widest flex items-center gap-2">
-                                      <Trophy size={14} />
+                                <div className="mt-8 pt-6 border-t border-white/10">
+                                  <div className="flex items-center justify-between mb-6">
+                                    <h5 className="text-white/60 text-sm uppercase tracking-widest flex items-center gap-2">
+                                      <Trophy size={18} />
                                       出价记录 ({round.bids.length}人)
                                     </h5>
-                                    <span className="text-white/30 text-xs font-mono">
+                                    <span className="text-white/30 text-sm font-mono">
                                       数据哈希: {dataHash.slice(0, 8)}
                                     </span>
                                   </div>
-                                  <div className="space-y-2.5">
+                                  <div className="space-y-3">
                                     {round.bids
                                       .sort((a, b) => b.amount - a.amount)
                                       .map((bid, bidIdx) => (
@@ -643,14 +636,14 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
                                           initial={{ opacity: 0, x: -20 }}
                                           animate={{ opacity: 1, x: 0 }}
                                           transition={{ delay: bidIdx * 0.05 }}
-                                          className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
+                                          className={`flex items-center justify-between p-5 rounded-2xl border transition-all ${
                                             bid.playerId === round.winnerId
                                               ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-amber-500/30'
                                               : 'bg-white/5 border-white/10 hover:bg-white/10'
                                           }`}
                                         >
-                                          <div className="flex items-center gap-3">
-                                            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                                          <div className="flex items-center gap-4">
+                                            <span className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
                                               bid.playerId === round.winnerId
                                                 ? 'bg-amber-500 text-black'
                                                 : bidIdx === 1
@@ -663,25 +656,25 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
                                             </span>
                                             <div className="flex flex-col">
                                               <div className="flex items-center gap-2">
-                                                <span className={`font-medium ${bid.playerId === round.winnerId ? 'text-amber-300' : 'text-white'}`}>
+                                                <span className={`font-medium text-lg ${bid.playerId === round.winnerId ? 'text-amber-300' : 'text-white'}`}>
                                                   {bid.playerName}
                                                 </span>
-                                                <span className="text-white/40 text-xs">
+                                                <span className="text-white/40 text-sm">
                                                   ({ROLES[bid.roleId]?.name || bid.roleId})
                                                 </span>
                                               </div>
-                                              <span className="text-white/30 text-xs font-mono">
+                                              <span className="text-white/30 text-sm font-mono">
                                                 {formatTime(bid.timestamp)}
                                               </span>
                                             </div>
                                             {bid.playerId === round.winnerId && (
-                                              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded-lg font-bold flex items-center gap-1">
-                                                <CheckCircle2 size={12} />
+                                              <span className="px-3 py-1.5 bg-amber-500/20 text-amber-400 text-sm rounded-xl font-bold flex items-center gap-1.5">
+                                                <CheckCircle2 size={16} />
                                                 中标
                                               </span>
                                             )}
                                           </div>
-                                          <span className={`font-mono text-lg font-bold ${bid.playerId === round.winnerId ? 'text-amber-400' : 'text-white/70'}`}>
+                                          <span className={`font-mono text-2xl font-bold ${bid.playerId === round.winnerId ? 'text-amber-400' : 'text-white/70'}`}>
                                             ¥{bid.amount.toLocaleString()}
                                           </span>
                                         </motion.div>
