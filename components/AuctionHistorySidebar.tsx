@@ -20,16 +20,20 @@ import {
   TrendingDown,
   PanelLeft,
   Info,
-  Trophy
+  Trophy,
+  X,
+  FileText
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AuctionRoundHistory } from '@/lib/game';
-import { Button, Badge, Input } from './ui';
+import { Button, Input } from './ui';
 
-// 操作类型定义
+// ==========================================
+// 1. 类型与配置 (Types & Configs)
+// ==========================================
+
 type OperationType = 'auction_start' | 'bid_submit' | 'auction_end' | 'winner_award' | 'item_transfer' | 'refund' | 'interest' | 'scrapper_take';
 
-// 操作记录接口
 interface OperationRecord {
   id: string;
   timestamp: number;
@@ -43,43 +47,42 @@ interface OperationRecord {
   details?: Record<string, unknown>;
 }
 
-// 操作类型配置
-const OPERATION_TYPE_CONFIG: Record<OperationType, { label: string; color: string; icon: React.ElementType }> = {
-  auction_start: { label: '竞拍开始', color: 'blue', icon: Gavel },
-  bid_submit: { label: '提交出价', color: 'amber', icon: Gavel },
-  auction_end: { label: '竞拍结束', color: 'purple', icon: CheckCircle2 },
-  winner_award: { label: '中标', color: 'green', icon: Trophy },
-  item_transfer: { label: '物品转让', color: 'cyan', icon: Eye },
-  refund: { label: '退款', color: 'yellow', icon: TrendingUp },
-  interest: { label: '利息', color: 'emerald', icon: TrendingUp },
-  scrapper_take: { label: '捡漏', color: 'orange', icon: AlertCircle }
+const OPERATION_TYPE_CONFIG: Record<OperationType, { label: string; icon: React.ElementType; theme: string }> = {
+  auction_start: { label: '竞拍开始', icon: Gavel, theme: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+  bid_submit: { label: '提交出价', icon: Gavel, theme: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
+  auction_end: { label: '竞拍结束', icon: CheckCircle2, theme: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
+  winner_award: { label: '中标', icon: Trophy, theme: 'text-green-400 bg-green-500/10 border-green-500/20' },
+  item_transfer: { label: '物品转让', icon: Eye, theme: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' },
+  refund: { label: '退款', icon: TrendingUp, theme: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
+  interest: { label: '利息', icon: TrendingUp, theme: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
+  scrapper_take: { label: '捡漏', icon: AlertCircle, theme: 'text-orange-400 bg-orange-500/10 border-orange-500/20' }
 };
 
-// 操作状态配置
 const STATUS_CONFIG = {
-  success: { label: '成功', color: 'green', icon: CheckCircle2 },
-  failed: { label: '失败', color: 'red', icon: XCircle },
-  pending: { label: '处理中', color: 'amber', icon: Clock }
+  success: { label: '成功', icon: CheckCircle2, theme: 'text-green-400 bg-green-500/10 border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.2)]' },
+  failed: { label: '失败', icon: XCircle, theme: 'text-red-400 bg-red-500/10 border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.2)]' },
+  pending: { label: '处理中', icon: Clock, theme: 'text-amber-400 bg-amber-500/10 border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.2)]' }
 };
 
-// 将竞拍历史转换为操作记录
+// ==========================================
+// 2. 工具函数 (Utilities)
+// ==========================================
+
 function convertToOperationRecords(auctionHistory: AuctionRoundHistory[]): OperationRecord[] {
-  const records: OperationRecord[] = [];
+  const records: OperationRecord[] =[];
 
   auctionHistory.forEach((roundHistory) => {
-    // 竞拍开始记录
     records.push({
       id: `round-${roundHistory.round}-start`,
       timestamp: roundHistory.roundStartTime,
       operationType: 'auction_start',
       operationObject: roundHistory.item.name,
       operationStatus: 'success',
-      remarks: `第 ${roundHistory.round} 轮竞拍开始，拍品 ${roundHistory.item.name}`,
+      remarks: `第 ${roundHistory.round} 轮竞拍开始`,
       round: roundHistory.round,
       details: { baseValue: roundHistory.item.baseValue }
     });
 
-    // 每个出价记录
     roundHistory.bids.forEach((bid) => {
       records.push({
         id: `round-${roundHistory.round}-bid-${bid.playerId}`,
@@ -87,7 +90,7 @@ function convertToOperationRecords(auctionHistory: AuctionRoundHistory[]): Opera
         operationType: 'bid_submit',
         operationObject: roundHistory.item.name,
         operationStatus: 'success',
-        remarks: `${bid.playerName} 出价 ¥${bid.amount.toLocaleString()}`,
+        remarks: `${bid.playerName} 提交了暗标`,
         round: roundHistory.round,
         playerName: bid.playerName,
         amount: bid.amount,
@@ -95,19 +98,17 @@ function convertToOperationRecords(auctionHistory: AuctionRoundHistory[]): Opera
       });
     });
 
-    // 竞拍结束记录
     records.push({
       id: `round-${roundHistory.round}-end`,
       timestamp: roundHistory.roundEndTime,
       operationType: 'auction_end',
       operationObject: roundHistory.item.name,
       operationStatus: 'success',
-      remarks: `第 ${roundHistory.round} 轮竞拍结束`,
+      remarks: `第 ${roundHistory.round} 轮博弈锁定并结束`,
       round: roundHistory.round,
       details: { status: roundHistory.status }
     });
 
-    // 中标者记录
     if (roundHistory.winnerId && roundHistory.winnerName) {
       records.push({
         id: `round-${roundHistory.round}-winner`,
@@ -115,21 +116,20 @@ function convertToOperationRecords(auctionHistory: AuctionRoundHistory[]): Opera
         operationType: 'winner_award',
         operationObject: roundHistory.item.name,
         operationStatus: 'success',
-        remarks: `${roundHistory.winnerName} 以 ¥${roundHistory.actualPayment.toLocaleString()} 中标`,
+        remarks: `${roundHistory.winnerName} 赢得了竞拍`,
         round: roundHistory.round,
         playerName: roundHistory.winnerName,
         amount: roundHistory.actualPayment,
         details: { winningBid: roundHistory.winningBid, trueValue: roundHistory.item.trueValue, profitLoss: roundHistory.profitLoss }
       });
 
-      // 物品转让记录
       records.push({
         id: `round-${roundHistory.round}-transfer`,
         timestamp: roundHistory.roundEndTime + 200,
         operationType: 'item_transfer',
         operationObject: roundHistory.item.name,
         operationStatus: 'success',
-        remarks: `拍品 ${roundHistory.item.name} 已转让给 ${roundHistory.winnerName}`,
+        remarks: `拍品所有权已转移至 ${roundHistory.winnerName}`,
         round: roundHistory.round,
         playerName: roundHistory.winnerName,
         details: { trueValue: roundHistory.item.trueValue }
@@ -141,195 +141,181 @@ function convertToOperationRecords(auctionHistory: AuctionRoundHistory[]): Opera
         operationType: 'scrapper_take',
         operationObject: roundHistory.item.name,
         operationStatus: 'success',
-        remarks: `捡漏客获得流拍物品 ${roundHistory.item.name}，价格为真实价值的50%`,
+        remarks: `流拍，捡漏客触发被动回收`,
         round: roundHistory.round,
         details: { trueValue: roundHistory.item.trueValue }
       });
     }
   });
 
-  // 按时间倒序排列
   return records.sort((a, b) => b.timestamp - a.timestamp);
 }
 
-// 格式化时间
-function formatTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const seconds = date.getSeconds().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${month}-${day} ${hours}:${minutes}:${seconds}`;
-}
+const formatTime = (timestamp: number) => 
+  new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(timestamp);
 
-// 格式化日期
-function formatDate(timestamp: number): string {
-  const date = new Date(timestamp);
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  const year = date.getFullYear();
-  return `${year}-${month}-${day}`;
-}
+const formatDate = (timestamp: number) => 
+  new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(timestamp).replace(/\//g, '-');
 
-// 状态徽章组件
+// ==========================================
+// 3. 子组件 (Sub Components)
+// ==========================================
+
 function StatusBadge({ status }: { status: 'success' | 'failed' | 'pending' }) {
   const config = STATUS_CONFIG[status];
   const Icon = config.icon;
   return (
-    <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-      status === 'success' ? 'bg-green-500/20 text-green-400' :
-      status === 'failed' ? 'bg-red-500/20 text-red-400' :
-      'bg-amber-500/20 text-amber-400'
-    }`}>
+    <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-widest ${config.theme}`}>
       <Icon size={12} />
       {config.label}
     </div>
   );
 }
 
-// 操作类型徽章组件
 function OperationTypeBadge({ type }: { type: OperationType }) {
   const config = OPERATION_TYPE_CONFIG[type];
   const Icon = config.icon;
   return (
-    <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-      type === 'auction_start' ? 'bg-blue-500/20 text-blue-400' :
-      type === 'bid_submit' ? 'bg-amber-500/20 text-amber-400' :
-      type === 'auction_end' ? 'bg-purple-500/20 text-purple-400' :
-      type === 'winner_award' ? 'bg-green-500/20 text-green-400' :
-      type === 'item_transfer' ? 'bg-cyan-500/20 text-cyan-400' :
-      type === 'refund' ? 'bg-yellow-500/20 text-yellow-400' :
-      type === 'interest' ? 'bg-emerald-500/20 text-emerald-400' :
-      'bg-orange-500/20 text-orange-400'
-    }`}>
+    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] font-medium tracking-wide ${config.theme}`}>
       <Icon size={12} />
       {config.label}
     </div>
   );
 }
 
-// 排序图标组件 - 移到外部以避免在渲染时创建
 function SortIcon({ columnKey, sortConfig }: { 
   columnKey: keyof OperationRecord; 
   sortConfig: { key: keyof OperationRecord; direction: 'asc' | 'desc' }; 
 }) {
-  if (sortConfig.key !== columnKey) return null;
-  return sortConfig.direction === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />;
+  if (sortConfig.key !== columnKey) return <ChevronDown size={14} className="opacity-20 group-hover:opacity-50 transition-opacity" />;
+  return sortConfig.direction === 'asc' ? <ChevronUp size={14} className="text-amber-500" /> : <ChevronDown size={14} className="text-amber-500" />;
 }
 
-// 详情弹窗组件
 function DetailModal({ record, onClose }: { record: OperationRecord; onClose: () => void }) {
+  
+  // 监听 ESC 键关闭弹窗
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="relative bg-gradient-to-b from-white/10 to-black/40 border border-white/10 rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl"
-        >
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h3 className="text-xl font-bold text-white mb-2">操作详情</h3>
-              <div className="flex items-center gap-2">
-                <OperationTypeBadge type={record.operationType} />
-                <StatusBadge status={record.operationStatus} />
-              </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        className="relative bg-[#0a0a0a] border border-white/10 rounded-2xl p-6 max-w-lg w-full shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[60px] pointer-events-none" />
+
+        <div className="flex items-start justify-between mb-6 relative z-10 border-b border-white/10 pb-4">
+          <div>
+            <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+              <FileText size={18} className="text-amber-500" /> 操作流水详情
+            </h3>
+            <div className="flex items-center gap-2">
+              <OperationTypeBadge type={record.operationType} />
+              <StatusBadge status={record.operationStatus} />
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose} className="text-white/60 hover:text-white">
-              ×
-            </Button>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors focus:outline-none focus:ring-1 focus:ring-white/20"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-4 relative z-10">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-white/5 border border-white/5 rounded-xl">
+              <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Clock size={12}/> 记录时间</div>
+              <div className="font-mono text-sm text-white/90">{formatTime(record.timestamp)}</div>
+            </div>
+            {record.round !== undefined ? (
+              <div className="p-3 bg-white/5 border border-white/5 rounded-xl">
+                <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1.5 flex items-center gap-1"><TrendingUp size={12}/> 所属轮次</div>
+                <div className="font-mono text-sm text-amber-500 font-bold">Round {record.round}</div>
+              </div>
+            ) : <div className="p-3 bg-white/5 border border-white/5 rounded-xl" />}
           </div>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-black/30 rounded-xl">
-                <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1">时间</div>
-                <div className="font-mono text-sm text-white">{formatTime(record.timestamp)}</div>
-              </div>
-              {record.round !== undefined && (
-                <div className="p-3 bg-black/30 rounded-xl">
-                  <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1">轮次</div>
-                  <div className="font-mono text-sm text-amber-500">第 {record.round} 轮</div>
-                </div>
-              )}
-            </div>
+          <div className="p-3 bg-white/5 border border-white/5 rounded-xl">
+            <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1.5 flex items-center gap-1"><PanelLeft size={12}/> 操作对象</div>
+            <div className="text-sm text-white font-medium">{record.operationObject}</div>
+          </div>
 
-            <div className="p-3 bg-black/30 rounded-xl">
-              <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1">操作对象</div>
-              <div className="text-sm text-white">{record.operationObject}</div>
-            </div>
+          <div className="p-3 bg-white/5 border border-white/5 rounded-xl">
+            <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Info size={12}/> 备注说明</div>
+            <div className="text-sm text-white/70 leading-relaxed">{record.remarks}</div>
+          </div>
 
-            <div className="p-3 bg-black/30 rounded-xl">
-              <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1">备注</div>
-              <div className="text-sm text-white/80">{record.remarks}</div>
-            </div>
-
+          <div className="grid grid-cols-2 gap-3">
             {record.playerName && (
-              <div className="p-3 bg-black/30 rounded-xl">
-                <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1">参与者</div>
-                <div className="text-sm text-white flex items-center gap-2">
-                  <User size={14} />
-                  {record.playerName}
-                </div>
+              <div className="p-3 bg-white/5 border border-white/5 rounded-xl">
+                <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1.5 flex items-center gap-1"><User size={12}/> 参与者节点</div>
+                <div className="text-sm text-white font-medium">{record.playerName}</div>
               </div>
             )}
-
             {record.amount !== undefined && (
-              <div className="p-3 bg-black/30 rounded-xl">
-                <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1">金额</div>
-                <div className="font-mono text-lg text-amber-500">¥{record.amount.toLocaleString()}</div>
-              </div>
-            )}
-
-            {record.details && Object.keys(record.details).length > 0 && (
-              <div className="p-3 bg-black/30 rounded-xl">
-                <div className="text-[10px] text-white/40 uppercase tracking-widest mb-2">额外信息</div>
-                <div className="space-y-1 font-mono text-xs">
-                  {Object.entries(record.details).map(([key, value]) => (
-                    <div key={key} className="flex justify-between text-white/60">
-                      <span>{key}:</span>
-                      <span className="text-white/80">{String(value)}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="p-3 bg-white/5 border border-white/5 rounded-xl">
+                <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1.5">触发金额</div>
+                <div className="font-mono text-lg text-amber-400 font-bold">¥{record.amount.toLocaleString()}</div>
               </div>
             )}
           </div>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+
+          {record.details && Object.keys(record.details).length > 0 && (
+            <div className="p-3 bg-black/40 border border-white/5 rounded-xl shadow-inner">
+              <div className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-bold">Payload Data</div>
+              <div className="space-y-1.5 font-mono text-[11px]">
+                {Object.entries(record.details).map(([key, value]) => (
+                  <div key={key} className="flex justify-between items-center border-b border-white/5 pb-1 last:border-0 last:pb-0">
+                    <span className="text-white/40">{key}</span>
+                    <span className="text-blue-300/80">{String(value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
+// ==========================================
+// 4. 主组件 (Main Component)
+// ==========================================
+
 export default function AuctionHistorySidebar({ auctionHistory }: { auctionHistory: AuctionRoundHistory[] }) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const[searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: keyof OperationRecord; direction: 'asc' | 'desc' }>({
     key: 'timestamp',
     direction: 'desc'
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedRecord, setSelectedRecord] = useState<OperationRecord | null>(null);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const[selectedRecord, setSelectedRecord] = useState<OperationRecord | null>(null);
+  const itemsPerPage = 12;
 
-  // 转换记录
   const operationRecords = useMemo(() => convertToOperationRecords(auctionHistory), [auctionHistory]);
 
-  // 过滤和排序记录，并管理分页
   const { filteredAndSortedRecords, totalPages, paginatedRecords } = useMemo(() => {
-    let filtered = [...operationRecords];
+    let filtered =[...operationRecords];
 
-    // 搜索过滤
-    if (searchTerm) {
+    if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (record) =>
@@ -340,274 +326,252 @@ export default function AuctionHistorySidebar({ auctionHistory }: { auctionHisto
       );
     }
 
-    // 排序
     filtered.sort((a, b) => {
       const aVal = a[sortConfig.key];
       const bVal = b[sortConfig.key];
 
       if (aVal === undefined) return 1;
       if (bVal === undefined) return -1;
-
       if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
 
-    // 计算总页数
     const totalPages = Math.ceil(filtered.length / itemsPerPage);
-    
-    // 处理分页
     const start = (currentPage - 1) * itemsPerPage;
     const paginatedRecords = filtered.slice(start, start + itemsPerPage);
 
-    return { filteredAndSortedRecords: filtered, totalPages, paginatedRecords };
-  }, [operationRecords, searchTerm, sortConfig, currentPage, itemsPerPage]);
+    return { filteredAndSortedRecords: filtered, totalPages: Math.max(1, totalPages), paginatedRecords };
+  }, [operationRecords, searchTerm, sortConfig, currentPage]);
 
-  // 处理排序点击
   const handleSort = (key: keyof OperationRecord) => {
-    if (sortConfig.key === key) {
-      setSortConfig({
-        key,
-        direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
-      });
-    } else {
-      setSortConfig({ key, direction: 'desc' });
-    }
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
     setCurrentPage(1);
   };
 
-  // 导出功能
   const handleExport = () => {
-    const csvContent = [
-      ['时间', '操作类型', '操作对象', '操作状态', '备注', '轮次', '参与者', '金额'].join(','),
-      ...filteredAndSortedRecords.map(record => [
+    const csvContent = [['时间', '操作类型', '操作对象', '操作状态', '备注', '轮次', '参与者', '金额'].join(','),
+      ...filteredAndSortedRecords.map(record =>[
         formatTime(record.timestamp),
         OPERATION_TYPE_CONFIG[record.operationType].label,
         record.operationObject,
         STATUS_CONFIG[record.operationStatus].label,
-        record.remarks,
+        `"${record.remarks}"`, // 用引号包裹防止由于内容含有逗号而破坏CSV格式
         record.round || '',
         record.playerName || '',
         record.amount || ''
       ].join(','))
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' }); // 加入 BOM 以防 Excel 中文乱码
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `auction-history-${formatDate(Date.now())}.csv`);
+    link.setAttribute('download', `auction-syslog-${formatDate(Date.now())}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // 收起状态 - 只显示关键信息
-  if (!isExpanded) {
-    return (
-      <motion.div
-        initial={{ width: 60 }}
-        animate={{ width: 60 }}
-        className="bg-white/5 border border-white/10 rounded-xl h-full flex flex-col"
-      >
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsExpanded(true)}
-          className="p-3 justify-center text-white/60 hover:text-white hover:bg-white/10 rounded-t-xl"
-        >
-          <ChevronRight size={20} />
-        </Button>
-        <div className="flex-1 flex flex-col items-center py-4 gap-4">
-          <PanelLeft size={20} className="text-amber-500" />
-          <div className="text-center">
-            <div className="text-amber-500 font-bold text-lg">{operationRecords.length}</div>
-            <div className="text-[10px] text-white/40 uppercase tracking-widest">记录</div>
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
-
   return (
     <motion.div
-      initial={{ width: '100%' }}
-      animate={{ width: '100%' }}
-      className="bg-white/5 border border-white/10 rounded-xl flex flex-col h-full min-h-[400px]"
+      animate={{ 
+        width: isExpanded ? '100%' : '60px',
+        minHeight: isExpanded ? '400px' : '200px'
+      }}
+      transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+      className={`bg-black/40 border border-white/10 rounded-2xl flex flex-col h-full overflow-hidden ${isExpanded ? 'shadow-lg backdrop-blur-md' : ''}`}
     >
-      {/* 头部 */}
-      <div className="p-4 border-b border-white/10">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsExpanded(false)}
-              className="p-2 text-white/60 hover:text-white hover:bg-white/10"
-            >
-              <ChevronLeft size={16} />
-            </Button>
-            <h3 className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-2">
-              <Filter size={14} />
-              操作历史记录
-            </h3>
-          </div>
+      {/* 收起状态视图 */}
+      {!isExpanded ? (
+        <div className="flex flex-col h-full py-2">
           <Button
             variant="ghost"
-            size="sm"
-            onClick={handleExport}
-            className="text-white/60 hover:text-white hover:bg-white/10 text-xs"
+            onClick={() => setIsExpanded(true)}
+            className="mx-auto p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg"
           >
-            <Download size={14} />
+            <ChevronRight size={20} />
           </Button>
-        </div>
-
-        {/* 搜索栏 */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
-          <Input
-            type="text"
-            placeholder="搜索记录..."
-            value={searchTerm}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="pl-10 bg-black/30 border-white/10 text-sm placeholder:text-white/30 w-full"
-          />
-        </div>
-      </div>
-
-      {/* 表格内容 */}
-      <div className="flex-1 overflow-auto">
-        {paginatedRecords.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full py-12 text-white/40">
-            <Info size={40} className="mb-4 opacity-50" />
-            <div className="text-sm font-medium">暂无记录</div>
-            <div className="text-xs mt-1">游戏开始后将显示操作历史</div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-black/30 sticky top-0 z-10">
-                <tr>
-                  <th
-                    className="px-3 py-3 cursor-pointer hover:bg-white/5 select-none"
-                    onClick={() => handleSort('timestamp')}
-                  >
-                    <div className="flex items-center gap-1 text-white/60 uppercase tracking-widest font-bold text-[10px]">
-                      <Clock size={12} />
-                      时间
-                      <SortIcon columnKey="timestamp" sortConfig={sortConfig} />
-                    </div>
-                  </th>
-                  <th
-                    className="px-3 py-3 cursor-pointer hover:bg-white/5 select-none"
-                    onClick={() => handleSort('operationType')}
-                  >
-                    <div className="flex items-center gap-1 text-white/60 uppercase tracking-widest font-bold text-[10px]">
-                      操作类型
-                      <SortIcon columnKey="operationType" sortConfig={sortConfig} />
-                    </div>
-                  </th>
-                  <th
-                    className="px-3 py-3 cursor-pointer hover:bg-white/5 select-none"
-                    onClick={() => handleSort('operationObject')}
-                  >
-                    <div className="flex items-center gap-1 text-white/60 uppercase tracking-widest font-bold text-[10px]">
-                      操作对象
-                      <SortIcon columnKey="operationObject" sortConfig={sortConfig} />
-                    </div>
-                  </th>
-                  <th
-                    className="px-3 py-3 cursor-pointer hover:bg-white/5 select-none"
-                    onClick={() => handleSort('operationStatus')}
-                  >
-                    <div className="flex items-center gap-1 text-white/60 uppercase tracking-widest font-bold text-[10px]">
-                      状态
-                      <SortIcon columnKey="operationStatus" sortConfig={sortConfig} />
-                    </div>
-                  </th>
-                  <th className="px-3 py-3">
-                    <div className="text-white/60 uppercase tracking-widest font-bold text-[10px]">备注</div>
-                  </th>
-                  <th className="px-3 py-3 w-10"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {paginatedRecords.map((record) => (
-                  <motion.tr
-                    key={record.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="hover:bg-white/5 transition-colors group"
-                  >
-                    <td className="px-3 py-3 font-mono text-white/60">
-                      {formatTime(record.timestamp)}
-                    </td>
-                    <td className="px-3 py-3">
-                      <OperationTypeBadge type={record.operationType} />
-                    </td>
-                    <td className="px-3 py-3 text-white/80 max-w-[120px] truncate" title={record.operationObject}>
-                      {record.operationObject}
-                    </td>
-                    <td className="px-3 py-3">
-                      <StatusBadge status={record.operationStatus} />
-                    </td>
-                    <td className="px-3 py-3 text-white/60 max-w-[200px] truncate" title={record.remarks}>
-                      {record.remarks}
-                    </td>
-                    <td className="px-3 py-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedRecord(record)}
-                        className="p-1 opacity-0 group-hover:opacity-100 text-white/40 hover:text-white hover:bg-white/10 transition-opacity"
-                      >
-                        <Eye size={14} />
-                      </Button>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* 分页 */}
-      {totalPages > 1 && (
-        <div className="p-4 border-t border-white/10 flex items-center justify-between">
-          <div className="text-[10px] text-white/40">
-            显示 {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredAndSortedRecords.length)} 共 {filteredAndSortedRecords.length} 条
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              className="text-xs"
-            >
-              上一页
-            </Button>
-            <div className="text-xs text-white/60 font-mono">
-              {currentPage} / {totalPages}
+          <div className="flex-1 flex flex-col items-center justify-center gap-3">
+            <PanelLeft size={18} className="text-amber-500/50" />
+            <div className="text-center writing-vertical-rl rotate-180">
+              <span className="text-[10px] text-white/40 uppercase tracking-[0.3em] font-bold">系统日志</span>
+              <span className="text-amber-500 font-mono font-bold ml-2">{operationRecords.length}</span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              className="text-xs"
-            >
-              下一页
-            </Button>
           </div>
+        </div>
+      ) : (
+        // 展开状态视图
+        <div className="flex flex-col h-full w-full min-w-[300px]">
+          {/* Header */}
+          <div className="p-4 border-b border-white/10 bg-white/5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsExpanded(false)}
+                  className="p-1.5 -ml-1 text-white/40 hover:text-white hover:bg-white/10"
+                >
+                  <ChevronLeft size={18} />
+                </Button>
+                <h3 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                  <Filter size={14} className="text-amber-500" />
+                  协议操作流水 (Log)
+                </h3>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+                className="text-xs py-1 px-3 border-white/10 hover:bg-white/10 flex items-center gap-1.5"
+              >
+                <Download size={12} />
+                <span className="hidden sm:inline">导出 CSV</span>
+              </Button>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" size={14} />
+              <Input
+                type="text"
+                placeholder="检索对象、备注或参与者..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="pl-9 pr-9 bg-black/40 border-white/10 text-sm placeholder:text-white/30 w-full focus:border-amber-500/50 transition-colors"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => { setSearchTerm(''); setCurrentPage(1); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors focus:outline-none"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Table Body */}
+          <div className="flex-1 overflow-auto custom-scrollbar">
+            {paginatedRecords.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full py-16 text-white/30">
+                <Info size={40} className="mb-4 opacity-30" />
+                <div className="text-sm font-bold tracking-widest uppercase">检索结果为空</div>
+                <div className="text-xs mt-1 opacity-70">等待节点产生新的数据块...</div>
+              </div>
+            ) : (
+              <div className="min-w-[600px] w-full">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-[#111] sticky top-0 z-10 shadow-sm border-b border-white/10">
+                    <tr>
+                      {([
+                        { key: 'timestamp', label: '记录时间', icon: Clock },
+                        { key: 'operationType', label: '指令类型' },
+                        { key: 'operationObject', label: '操作对象' },
+                        { key: 'operationStatus', label: '状态' },
+                      ] as const).map((col) => (
+                        <th
+                          key={col.key}
+                          className="px-4 py-3 cursor-pointer hover:bg-white/5 select-none transition-colors group first:pl-6"
+                          onClick={() => handleSort(col.key)}
+                        >
+                          <div className="flex items-center gap-1.5 text-white/50 uppercase tracking-widest font-bold text-[10px]">
+                            {col.icon && <col.icon size={12} />}
+                            {col.label}
+                            <SortIcon columnKey={col.key} sortConfig={sortConfig} />
+                          </div>
+                        </th>
+                      ))}
+                      <th className="px-4 py-3">
+                        <div className="text-white/50 uppercase tracking-widest font-bold text-[10px]">负载/备注</div>
+                      </th>
+                      <th className="px-4 py-3 w-12 pr-6"></th>
+                    </tr>
+                  </thead>
+                  
+                  <tbody className="divide-y divide-white/5">
+                    <AnimatePresence mode="popLayout">
+                      {paginatedRecords.map((record) => (
+                        <motion.tr
+                          layout
+                          key={record.id}
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="hover:bg-white/5 transition-colors group"
+                        >
+                          <td className="px-4 py-3 pl-6 font-mono text-white/50 whitespace-nowrap">
+                            {formatTime(record.timestamp)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <OperationTypeBadge type={record.operationType} />
+                          </td>
+                          <td className="px-4 py-3 text-white/80 max-w-[120px] truncate font-medium" title={record.operationObject}>
+                            {record.operationObject}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <StatusBadge status={record.operationStatus} />
+                          </td>
+                          <td className="px-4 py-3 text-white/50 max-w-[200px] truncate text-[11px]" title={record.remarks}>
+                            {record.remarks}
+                          </td>
+                          <td className="px-4 py-3 pr-6 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedRecord(record)}
+                              className="p-1.5 opacity-0 group-hover:opacity-100 text-white/40 hover:text-amber-500 hover:bg-amber-500/10 transition-all focus:opacity-100"
+                              title="查看 Payload"
+                            >
+                              <Eye size={14} />
+                            </Button>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </AnimatePresence>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Pagination */}
+          {totalPages > 1 && (
+            <div className="p-3 border-t border-white/10 flex items-center justify-between bg-black/40">
+              <div className="text-[10px] text-white/40 font-mono">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredAndSortedRecords.length)} / {filteredAndSortedRecords.length}
+              </div>
+              <div className="flex items-center gap-1.5 bg-white/5 rounded-md p-1 border border-white/5">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  className="p-1 text-white/50 hover:text-white disabled:opacity-30 disabled:hover:text-white/50 transition-colors rounded"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <div className="text-[10px] text-white/70 font-mono px-2 font-bold select-none">
+                  {currentPage} <span className="text-white/30 mx-0.5">/</span> {totalPages}
+                </div>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  className="p-1 text-white/50 hover:text-white disabled:opacity-30 disabled:hover:text-white/50 transition-colors rounded"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* 详情弹窗 */}
+      {/* 弹窗在顶层渲染 */}
       <AnimatePresence>
         {selectedRecord && (
           <DetailModal
