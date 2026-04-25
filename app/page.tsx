@@ -1,18 +1,64 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { callRelay } from '@/lib/api';
-import { DEFAULT_ROOM_CONFIG, normalizeRoomConfig, ROLES, RoomConfig } from '@/lib/game';
+import { DEFAULT_ROOM_CONFIG, normalizeRoomConfig, ROLES, RoomConfig, GAME_ITEMS, buildDefaultRoundItem } from '@/lib/game';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '@/components/ui/Toast';
 import { Button, Input, Card, FadeIn, SlideIn, ScaleIn, Badge } from '@/components/ui';
-import { User, Key, Copy, ChevronRight, ChevronLeft, Settings, HelpCircle, X, Gavel, TrendingUp } from 'lucide-react';
+import { User, Key, Copy, ChevronRight, ChevronLeft, Settings, HelpCircle, X, Gavel, TrendingUp, Shuffle, RefreshCw, Clock, Zap, Shield, Award, Plus, Minus } from 'lucide-react';
 
 interface FormErrors {
   name?: string;
   joinCode?: string;
 }
+
+interface PresetMode {
+  name: string;
+  description: string;
+  config: Partial<RoomConfig>;
+  icon: React.ReactNode;
+}
+
+const PRESETS: PresetMode[] = [
+  {
+    name: '快速模式',
+    description: '快速游戏，适合新手',
+    icon: <Zap size={16} />,
+    config: {
+      biddingSeconds: 20,
+      rounds: 3,
+      initialBalance: 3000,
+      lockSeconds: 2,
+      revealSeconds: 5,
+    },
+  },
+  {
+    name: '标准模式',
+    description: '平衡的游戏体验',
+    icon: <Shield size={16} />,
+    config: {
+      biddingSeconds: 45,
+      rounds: 5,
+      initialBalance: 5000,
+      lockSeconds: 2,
+      revealSeconds: 7,
+    },
+  },
+  {
+    name: '疯狂模式',
+    description: '更多轮数，更多资金！',
+    icon: <Award size={16} />,
+    config: {
+      biddingSeconds: 60,
+      rounds: 10,
+      initialBalance: 10000,
+      lockSeconds: 3,
+      revealSeconds: 10,
+    },
+  },
+];
 
 export default function Home() {
   const router = useRouter();
@@ -24,6 +70,7 @@ export default function Home() {
   const [selectedRole, setSelectedRole] = useState<keyof typeof ROLES>('tycoon');
   const [showRules, setShowRules] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
+  const [activeTab, setActiveTab] = useState<'preset' | 'advanced'>('preset');
   const [hostConfig, setHostConfig] = useState<RoomConfig>(() => normalizeRoomConfig(DEFAULT_ROOM_CONFIG));
   const [errors, setErrors] = useState<FormErrors>({});
 
@@ -53,11 +100,47 @@ export default function Home() {
     return isValid;
   }, [name, joinCode]);
 
+  const applyPreset = useCallback((preset: PresetMode) => {
+    setHostConfig((prev) => normalizeRoomConfig({ ...prev, ...preset.config }));
+    showToast(`已应用 ${preset.name}！`, 'success');
+  }, [showToast]);
+
+  const resetConfig = useCallback(() => {
+    setHostConfig(normalizeRoomConfig(DEFAULT_ROOM_CONFIG));
+    showToast('配置已重置为默认值', 'info');
+  }, [showToast]);
+
+  const shuffleItems = useCallback(() => {
+    setHostConfig((prev) => {
+      const shuffled = [...prev.roundItems].sort(() => Math.random() - 0.5);
+      return normalizeRoomConfig({ ...prev, roundItems: shuffled });
+    });
+    showToast('商品顺序已随机化！', 'success');
+  }, [showToast]);
+
+  const randomizeItemValues = useCallback(() => {
+    setHostConfig((prev) => {
+      const randomized = prev.roundItems.map((item, idx) => {
+        const template = GAME_ITEMS[Math.floor(Math.random() * GAME_ITEMS.length)];
+        const variance = 0.6 + Math.random() * 0.8;
+        const trueVariance = 0.3 + Math.random() * 2.5;
+        return {
+          name: template.name,
+          description: template.description,
+          referencePrice: Math.round(template.baseValue * variance),
+          trueValue: Math.round(template.baseValue * trueVariance),
+        };
+      });
+      return normalizeRoomConfig({ ...prev, roundItems: randomized });
+    });
+    showToast('商品价值已随机化！', 'success');
+  }, [showToast]);
+
   const updateHostConfig = useCallback((patch: Partial<RoomConfig>) => {
     setHostConfig((prev) => normalizeRoomConfig({ ...prev, ...patch }));
   }, []);
 
-  const updateRoundItem = useCallback((roundIdx: number, key: 'referencePrice' | 'trueValue', value: number) => {
+  const updateRoundItem = useCallback((roundIdx: number, key: keyof RoomConfig['roundItems'][0], value: string | number) => {
     setHostConfig((prev) => {
       const nextRoundItems = prev.roundItems.map((item, idx) => {
         if (idx !== roundIdx) return item;
@@ -175,43 +258,200 @@ export default function Home() {
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden"
                       >
-                        <div className="space-y-3 p-4 border border-white/10 bg-black/30 rounded-xl">
-                          <div className="grid grid-cols-3 gap-2">
-                            <label className="space-y-1">
-                              <span className="block text-[10px] text-white/40 uppercase tracking-wider">等待时间</span>
-                              <input
-                                type="number"
-                                min={5}
-                                max={180}
-                                value={hostConfig.biddingSeconds}
-                                onChange={(e) => updateHostConfig({ biddingSeconds: Number(e.target.value) })}
-                                className="w-full px-2 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all text-amber-500 font-mono text-sm"
-                              />
-                            </label>
-                            <label className="space-y-1">
-                              <span className="block text-[10px] text-white/40 uppercase tracking-wider">轮数</span>
-                              <input
-                                type="number"
-                                min={1}
-                                max={12}
-                                value={hostConfig.rounds}
-                                onChange={(e) => updateHostConfig({ rounds: Number(e.target.value) })}
-                                className="w-full px-2 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all text-amber-500 font-mono text-sm"
-                              />
-                            </label>
-                            <label className="space-y-1">
-                              <span className="block text-[10px] text-white/40 uppercase tracking-wider">初始金</span>
-                              <input
-                                type="number"
-                                min={100}
-                                max={2000000}
-                                step={100}
-                                value={hostConfig.initialBalance}
-                                onChange={(e) => updateHostConfig({ initialBalance: Number(e.target.value) })}
-                                className="w-full px-2 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all text-amber-500 font-mono text-sm"
-                              />
-                            </label>
+                        <div className="space-y-4 p-4 border border-white/10 bg-black/30 rounded-xl">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setActiveTab('preset')}
+                              className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border ${activeTab === 'preset' ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-white/5 border-white/10 text-white/50'}`}
+                            >
+                              快速配置
+                            </button>
+                            <button
+                              onClick={() => setActiveTab('advanced')}
+                              className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border ${activeTab === 'advanced' ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-white/5 border-white/10 text-white/50'}`}
+                            >
+                              高级设置
+                            </button>
                           </div>
+
+                          {activeTab === 'preset' && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="space-y-2"
+                            >
+                              <div className="grid grid-cols-1 gap-2">
+                                {PRESETS.map((preset, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => applyPreset(preset)}
+                                  className="p-3 rounded-lg border border-white/10 hover:border-amber-500/30 hover:bg-amber-500/5 transition-all text-left flex items-center gap-3"
+                                >
+                                  <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                                    {preset.icon}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="font-bold text-sm text-white">{preset.name}</div>
+                                    <div className="text-[10px] text-white/50">{preset.description}</div>
+                                  </div>
+                                </button>
+                              ))}
+                              </div>
+                              <div className="flex gap-2 pt-2">
+                                <Button
+                                  onClick={resetConfig}
+                                  variant="secondary"
+                                  size="sm"
+                                  className="flex-1"
+                                >
+                                  <span className="flex items-center gap-1">
+                                    <RefreshCw size={14} />
+                                    重置
+                                  </span>
+                                </Button>
+                              </div>
+                            </motion.div>
+                          )}
+
+                          {activeTab === 'advanced' && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="space-y-3"
+                            >
+                              <div className="text-xs text-white/40 uppercase tracking-widest border-b border-white/10 pb-2">
+                                <div className="text-white/50">⏱️ 时间设置</div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <span className="block text-[10px] text-white/40 uppercase tracking-wider">等待时间 (秒)</span>
+                                  <input
+                                    type="number"
+                                    min={5}
+                                    max={180}
+                                    value={hostConfig.biddingSeconds}
+                                    onChange={(e) => updateHostConfig({ biddingSeconds: Number(e.target.value) })}
+                                    className="w-full px-2 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all text-amber-500 font-mono text-sm"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="block text-[10px] text-white/40 uppercase tracking-wider">锁定时间 (秒)</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={15}
+                                    value={hostConfig.lockSeconds}
+                                    onChange={(e) => updateHostConfig({ lockSeconds: Number(e.target.value) })}
+                                    className="w-full px-2 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all text-amber-500 font-mono text-sm"
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <span className="block text-[10px] text-white/40 uppercase tracking-wider">揭晓时间 (秒)</span>
+                                  <input
+                                    type="number"
+                                    min={3}
+                                    max={30}
+                                    value={hostConfig.revealSeconds}
+                                    onChange={(e) => updateHostConfig({ revealSeconds: Number(e.target.value) })}
+                                    className="w-full px-2 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all text-amber-500 font-mono text-sm"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="block text-[10px] text-white/40 uppercase tracking-wider">总轮数</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={12}
+                                    value={hostConfig.rounds}
+                                    onChange={(e) => updateHostConfig({ rounds: Number(e.target.value) })}
+                                    className="w-full px-2 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all text-amber-500 font-mono text-sm"
+                                  />
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="block text-[10px] text-white/40 uppercase tracking-wider">初始资金</span>
+                                <input
+                                  type="number"
+                                  min={100}
+                                  max={2000000}
+                                  step={100}
+                                  value={hostConfig.initialBalance}
+                                  onChange={(e) => updateHostConfig({ initialBalance: Number(e.target.value) })}
+                                  className="w-full px-2 py-2 bg-black/40 border border-white/10 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all text-amber-500 font-mono text-sm"
+                                />
+                              </div>
+
+                              <div className="text-xs text-white/40 uppercase tracking-widest border-b border-white/10 pb-2 pt-3">
+                                <div className="text-white/50">🏷️ 商品配置</div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button onClick={shuffleItems} variant="secondary" size="sm">
+                                  <span className="flex items-center gap-1">
+                                    <Shuffle size={14} />
+                                    随机排序
+                                  </span>
+                                </Button>
+                                <Button onClick={randomizeItemValues} variant="secondary" size="sm">
+                                  <span className="flex items-center gap-1">
+                                    <TrendingUp size={14} />
+                                    随机价值
+                                  </span>
+                                </Button>
+                              </div>
+
+                              <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                                {hostConfig.roundItems.map((item, idx) => (
+                                  <div key={idx} className="p-2 border border-white/10 rounded-lg bg-black/40">
+                                    <div className="font-bold text-xs text-white mb-1">第 {idx + 1} 轮</div>
+                                    <div className="text-xs text-amber-400 font-mono mb-1">
+                                      参考: {item.referencePrice} / 真实: {item.trueValue}
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={item.name}
+                                      onChange={(e) => updateRoundItem(idx, 'name', e.target.value)}
+                                      className="w-full text-xs py-1 px-2 bg-white/5 border border-white/10 rounded focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all text-white/80 placeholder:text-white/40 mb-1"
+                                      placeholder="商品名称"
+                                    />
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step={10}
+                                        value={item.referencePrice}
+                                        onChange={(e) => updateRoundItem(idx, 'referencePrice', Number(e.target.value))}
+                                        className="text-xs px-2 py-1 bg-white/5 border border-white/10 rounded focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all text-amber-500 font-mono"
+                                      />
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step={10}
+                                        value={item.trueValue}
+                                        onChange={(e) => updateRoundItem(idx, 'trueValue', Number(e.target.value))}
+                                        className="text-xs px-2 py-1 bg-white/5 border border-white/10 rounded focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all text-amber-500 font-mono"
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={resetConfig}
+                                  variant="secondary"
+                                  size="sm"
+                                  className="flex-1"
+                                >
+                                  <span className="flex items-center gap-1">
+                                    <RefreshCw size={14} />
+                                    重置
+                                  </span>
+                                </Button>
+                              </div>
+                            </motion.div>
+                          )}
                         </div>
                       </motion.div>
                     )}
