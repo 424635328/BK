@@ -100,10 +100,10 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
     }
 
     // 按价格范围过滤
-    if (priceRange.min !== '') {
+    if (priceRange.min !== '' && typeof priceRange.min === 'number') {
       filtered = filtered.filter(item => item.winningBid >= priceRange.min);
     }
-    if (priceRange.max !== '') {
+    if (priceRange.max !== '' && typeof priceRange.max === 'number') {
       filtered = filtered.filter(item => item.winningBid <= priceRange.max);
     }
 
