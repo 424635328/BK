@@ -202,6 +202,17 @@ export function buildRoundItemFromConfig(round: number, config: RoomConfig): Ite
   };
 }
 
+export function convertRoundItemConfigToItem(round: number, config: RoundItemConfig): Item {
+  const idx = Math.max(0, round - 1);
+  return {
+    id: `round-${round}-${idx}`,
+    name: config.name,
+    description: config.description,
+    baseValue: config.referencePrice,
+    trueValue: config.trueValue,
+  };
+}
+
 export function isRoleId(roleId: string): roleId is RoleId {
   return roleId in ROLES;
 }

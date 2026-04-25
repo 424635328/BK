@@ -14,6 +14,8 @@ import {
   RoomConfig,
   AuctionRoundHistory,
   BidRecord,
+  convertRoundItemConfigToItem,
+  Item,
 } from '@/lib/game';
 import { GameUI } from './SharedGameUI';
 
@@ -44,6 +46,30 @@ export default function HostEngine({ roomId }: { roomId: string }) {
       Object.entries(rawState.players ?? {}).map(([id, p]) => {
         const roleId: RoleId = isRoleId(String(p.roleId)) ? p.roleId : 'tycoon';
         const balance = Number.isFinite(p.balance) ? Math.max(0, Math.round(p.balance)) : getStartingBalance(roleId, config.initialBalance);
+        
+        // 确保 inventory 是 Item 类型数组
+        let inventory: Item[] = [];
+        if (Array.isArray(p.inventory)) {
+          inventory = p.inventory.map((item: any) => {
+            if (item && typeof item === 'object') {
+              return {
+                id: item.id || `item-${Date.now()}`,
+                name: item.name || 'Unknown Item',
+                baseValue: Number(item.baseValue) || 0,
+                trueValue: Number(item.trueValue) || 0,
+                description: item.description || '',
+              };
+            }
+            return {
+              id: `item-${Date.now()}`,
+              name: 'Unknown Item',
+              baseValue: 0,
+              trueValue: 0,
+              description: '',
+            };
+          });
+        }
+
         return [
           id,
           {
@@ -51,11 +77,34 @@ export default function HostEngine({ roomId }: { roomId: string }) {
             name: typeof p.name === 'string' && p.name.trim() ? p.name : '匿名节点',
             balance,
             roleId,
-            inventory: Array.isArray(p.inventory) ? p.inventory : [],
+            inventory,
           },
         ];
       })
     );
+
+    // 清理和验证 winnerHistory
+    const winnerHistory = Array.isArray(rawState.winnerHistory) 
+      ? rawState.winnerHistory.filter((h: any) => h && typeof h.round === 'number') 
+      : [];
+
+    // 清理和验证 auctionHistory
+    const auctionHistory = Array.isArray(rawState.auctionHistory) 
+      ? rawState.auctionHistory.filter((h: any) => h && typeof h.round === 'number' && h.item) 
+      : [];
+
+    // 验证 currentItem
+    let currentItem = null;
+    if (rawState.currentItem && typeof rawState.currentItem === 'object') {
+      const item = rawState.currentItem as any;
+      currentItem = {
+        id: item.id || 'temp-item',
+        name: item.name || 'Unknown Item',
+        baseValue: Number(item.baseValue) || Number(item.referencePrice) || 0,
+        trueValue: Number(item.trueValue) || 0,
+        description: item.description || '',
+      };
+    }
 
     return {
       version: Number.isFinite(rawState.version) ? Math.max(1, Math.round(rawState.version ?? 1)) : 1,
@@ -63,11 +112,11 @@ export default function HostEngine({ roomId }: { roomId: string }) {
       round: Number.isFinite(rawState.round) ? Math.max(0, Math.round(rawState.round ?? 0)) : 0,
       config,
       players,
-      currentItem: rawState.currentItem ?? null,
+      currentItem,
       bids: rawState.bids ?? {},
       roundStartTime: Number.isFinite(Number(rawState.roundStartTime)) ? Number(rawState.roundStartTime) : 0,
-      winnerHistory: Array.isArray(rawState.winnerHistory) ? rawState.winnerHistory : [],
-      auctionHistory: Array.isArray(rawState.auctionHistory) ? rawState.auctionHistory : [],
+      winnerHistory,
+      auctionHistory,
       timer: Number.isFinite(rawState.timer) ? Math.max(0, Math.round(rawState.timer ?? 0)) : 0,
     };
   };
@@ -223,6 +272,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
 
 
   function startNewRound(st: GameState) {
+    // 检查是否已经开始并且需要验证轮次
     if (st.round >= st.config.rounds) {
       st.status = 'game_over';
       st.timer = 0;
@@ -231,6 +281,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
       return;
     }
 
+    // 增加轮次
     st.round += 1;
     st.bids = {};
     st.status = 'bidding';
@@ -246,6 +297,14 @@ export default function HostEngine({ roomId }: { roomId: string }) {
     st.status = 'revealing';
     st.timer = st.config.revealSeconds;
     const roundEndTime = Date.now();
+    
+    // 确保 currentItem 存在，否则无法记录
+    if (!st.currentItem) {
+      console.error("No currentItem available for resolving round");
+      st.version++;
+      persistState(st);
+      return;
+    }
     
     // Determine winner
     let highest = -1;
@@ -266,7 +325,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
     let actualPayment = 0;
     let auctionStatus: AuctionRoundHistory['status'] = 'completed';
     
-    if (winners.length > 0) {
+    if (winners.length > 0 && highest > 0) {
       if (winners.length === 1) {
         finalWinner = winners[0];
       } else {
@@ -281,7 +340,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
         }
       }
 
-      if (finalWinner && st.currentItem) {
+      if (finalWinner && st.players[finalWinner]) {
         const p = st.players[finalWinner];
         const winnerRole = ROLES[p.roleId];
         
@@ -302,6 +361,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
           }
         }
         
+        // 记录到 winnerHistory
         st.winnerHistory.push({
           round: st.round,
           item: st.currentItem,
@@ -310,22 +370,26 @@ export default function HostEngine({ roomId }: { roomId: string }) {
         });
       }
       
+      // 处理其他竞拍者的退款
       for (const [gid, amt] of Object.entries(st.bids)) {
         if (gid !== finalWinner) {
           const p = st.players[gid];
-          const role = ROLES[p.roleId];
-          if (role.ability === 'tycoon_refund') {
-            const refund = Math.round(amt * 0.2);
-            p.balance += refund;
+          if (p) {
+            const role = ROLES[p.roleId];
+            if (role.ability === 'tycoon_refund') {
+              const refund = Math.round(amt * 0.2);
+              p.balance += refund;
+            }
           }
         }
       }
     } else {
       auctionStatus = 'cancelled';
       // 检查捡漏客
+      let scrapperGotItem = false;
       for (const [gid, p] of Object.entries(st.players)) {
         const role = ROLES[p.roleId];
-        if (role.ability === 'scrapper_loot' && st.currentItem) {
+        if (role.ability === 'scrapper_loot') {
           const trueValue = st.currentItem.trueValue || 0;
           const cost = Math.round(trueValue * 0.5);
           if (p.balance >= cost) {
@@ -340,12 +404,14 @@ export default function HostEngine({ roomId }: { roomId: string }) {
               winnerId: gid,
               winningBid: cost
             });
+            scrapperGotItem = true;
             break;
           }
         }
       }
       
-      if (!st.winnerHistory.find(w => w.round === st.round) && st.currentItem) {
+      // 如果没有任何人获得物品，也要记录到 winnerHistory
+      if (!scrapperGotItem) {
         st.winnerHistory.push({
           round: st.round,
           item: st.currentItem,
@@ -355,6 +421,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
       }
     }
     
+    // 处理投资人利息
     for (const [gid, p] of Object.entries(st.players)) {
       const role = ROLES[p.roleId];
       if (role.ability === 'investor_interest') {
@@ -363,35 +430,40 @@ export default function HostEngine({ roomId }: { roomId: string }) {
       }
     }
 
-    // 记录详细的竞拍历史
-    if (st.currentItem) {
-      const bidRecords: BidRecord[] = Object.entries(st.bids).map(([playerId, amount]) => {
-        const player = st.players[playerId];
-        return {
-          playerId,
-          playerName: player?.name || 'Unknown',
-          roleId: player?.roleId || 'tycoon',
-          amount,
-          timestamp: st.roundStartTime
-        };
-      });
-
-      const winnerPlayer = finalWinner ? st.players[finalWinner] : null;
-      
-      const auctionRound: AuctionRoundHistory = {
-        round: st.round,
-        item: st.currentItem,
-        bids: bidRecords,
-        winnerId: finalWinner,
-        winnerName: winnerPlayer?.name || null,
-        winningBid: highest,
-        actualPayment,
-        status: auctionStatus,
-        roundStartTime: st.roundStartTime,
-        roundEndTime,
-        profitLoss: finalWinner ? st.currentItem.trueValue - actualPayment : undefined
+    // 记录详细的竞拍历史 - 确保记录完整
+    const baseTimestamp = st.roundStartTime;
+    const bidRecords: BidRecord[] = Object.entries(st.bids).map(([playerId, amount], index) => {
+      const player = st.players[playerId];
+      return {
+        playerId,
+        playerName: player?.name || 'Unknown',
+        roleId: player?.roleId || 'tycoon',
+        amount,
+        timestamp: baseTimestamp + (index + 1) * 1000 // 错开时间戳，让每个出价有稍微不同的时间
       };
-      
+    });
+
+    const winnerPlayer = finalWinner ? st.players[finalWinner] : null;
+    
+    const auctionRound: AuctionRoundHistory = {
+      round: st.round,
+      item: st.currentItem,
+      bids: bidRecords,
+      winnerId: finalWinner,
+      winnerName: winnerPlayer?.name || null,
+      winningBid: Math.max(0, highest),
+      actualPayment,
+      status: auctionStatus,
+      roundStartTime: st.roundStartTime,
+      roundEndTime,
+      profitLoss: finalWinner ? st.currentItem.trueValue - actualPayment : undefined
+    };
+    
+    // 添加到竞拍历史，避免重复添加
+    const existingRoundIndex = st.auctionHistory.findIndex(h => h.round === st.round);
+    if (existingRoundIndex >= 0) {
+      st.auctionHistory[existingRoundIndex] = auctionRound;
+    } else {
       st.auctionHistory.push(auctionRound);
     }
 

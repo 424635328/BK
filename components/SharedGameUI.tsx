@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ShieldAlert, Info, Copy, Trophy, TrendingUp, TrendingDown, Clock, User, Key, ChevronRight, Gavel, CheckCircle2, Zap } from 'lucide-react';
 import { useState } from 'react';
 import AuctionHistory from './AuctionHistory';
+import AuctionHistorySidebar from './AuctionHistorySidebar';
 import { Button, Input, Card, Badge } from './ui';
 
 export function GameUI({
@@ -547,7 +548,7 @@ export function GameUI({
           </div>
 
           {state.auctionHistory && state.auctionHistory.length > 0 && (
-            <AuctionHistory auctionHistory={state.auctionHistory} />
+            <AuctionHistorySidebar auctionHistory={state.auctionHistory} />
           )}
         </aside>
       </main>

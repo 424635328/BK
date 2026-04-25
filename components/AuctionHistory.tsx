@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuctionRoundHistory, ROLES } from '@/lib/game';
 import { 
@@ -16,11 +16,9 @@ import {
   ShieldAlert, 
   CheckCircle2, 
   XCircle,
-  Calendar,
-  DollarSign,
   User,
   RefreshCw,
-  ExternalLink
+  DollarSign,
 } from 'lucide-react';
 
 interface AuctionHistoryProps {
@@ -56,30 +54,16 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
   const [statusFilter, setStatusFilter] = useState<FilterType>('all');
   const [sortBy, setSortBy] = useState<SortType>('round_desc');
   const [searchTerm, setSearchTerm] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [dataHash, setDataHash] = useState<string>('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [priceRange, setPriceRange] = useState<{ min: number | ''; max: number | '' }>({ min: '', max: '' });
   const [winnerFilter, setWinnerFilter] = useState<string>('');
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [dataHash, setDataHash] = useState<string>('');
 
   // 验证数据完整性
   useEffect(() => {
     const hash = computeDataHash(auctionHistory);
-    if (dataHash && dataHash !== hash) {
-      console.warn('⚠️ 数据可能被篡改！');
-    }
     setDataHash(hash);
   }, [auctionHistory]);
-
-  // 模拟加载状态
-  useEffect(() => {
-    if (isExpanded && auctionHistory.length > 0) {
-      setIsLoading(true);
-      const timer = setTimeout(() => setIsLoading(false), 400);
-      return () => clearTimeout(timer);
-    }
-  }, [isExpanded, auctionHistory.length]);
 
   const filteredAndSortedHistory = useMemo(() => {
     let filtered = [...auctionHistory];
@@ -113,7 +97,7 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
       }
     }
 
-    // 按中标者过滤
+    // 按中标者筛选
     if (winnerFilter.trim()) {
       const winnerTerm = winnerFilter.toLowerCase();
       filtered = filtered.filter(item =>
@@ -228,37 +212,22 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
     return statusMap[status];
   };
 
-  // 获取排序标签
-  const getSortLabel = (type: SortType) => {
-    const labels: Record<SortType, string> = {
-      'round_desc': '最新优先',
-      'round_asc': '最早优先',
-      'profit_desc': '盈利最高',
-      'profit_asc': '亏损最多',
-      'bid_desc': '出价最高',
-      'bid_asc': '出价最低',
-      'time_desc': '耗时最长',
-      'time_asc': '耗时最短'
-    };
-    return labels[type];
-  };
-
   return (
     <div className="w-full">
       <motion.button
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl hover:bg-gradient-to-r from-blue-500/20 to-purple-500/20 transition-all group"
+        className="w-full flex items-center justify-between p-6 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl hover:bg-gradient-to-r from-blue-500/20 to-purple-500/20 transition-all group"
       >
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all">
             <Trophy className="text-white" size={24} />
           </div>
           <div className="text-left">
-            <h3 className="font-bold text-lg text-white flex items-center gap-2">
+            <h3 className="font-bold text-xl text-white flex items-center gap-2">
               竞拍历史记录
-              <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs font-mono">
+              <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-sm font-mono">
                 {auctionHistory.length}
               </span>
             </h3>
@@ -271,7 +240,7 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
           animate={{ rotate: isExpanded ? 180 : 0 }}
           className="p-2 bg-white/10 rounded-lg"
         >
-          <ChevronDown className="text-white/60" size={20} />
+          <ChevronDown className="text-white/60" size={24} />
         </motion.div>
       </motion.button>
 
@@ -281,10 +250,9 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
             initial={{ height: 0, opacity: 0, marginTop: 0 }}
             animate={{ height: 'auto', opacity: 1, marginTop: 12 }}
             exit={{ height: 0, opacity: 0, marginTop: 0 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden"
           >
-            <div className="p-5 bg-gradient-to-br from-black/40 to-blue-500/5 border-x border-b border-blue-500/10 rounded-b-xl space-y-5">
+            <div className="p-6 bg-gradient-to-br from-black/40 to-blue-500/5 border-x border-b border-blue-500/10 rounded-b-xl space-y-5">
               
               {/* 过滤器和搜索 - 头部 */}
               <div className="flex flex-wrap gap-3 items-center">
@@ -455,28 +423,8 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
               )}
 
               {/* 竞拍历史列表 */}
-              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar" ref={containerRef}>
-                {isLoading ? (
-                  // 加载骨架屏
-                  <div className="space-y-3">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="p-4 rounded-xl bg-white/5 border border-white/10 animate-pulse">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 bg-white/10 rounded-lg"></div>
-                          <div className="flex-1">
-                            <div className="h-4 bg-white/10 rounded w-32 mb-2"></div>
-                            <div className="h-3 bg-white/5 rounded w-48"></div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="h-6 bg-white/10 rounded"></div>
-                          <div className="h-6 bg-white/10 rounded"></div>
-                          <div className="h-6 bg-white/10 rounded"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : filteredAndSortedHistory.length === 0 ? (
+              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
+                {filteredAndSortedHistory.length === 0 ? (
                   // 空状态
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -499,7 +447,7 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
                         onClick={resetFilters}
                         className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-all text-sm"
                       >
-                        <RefreshCw size={16} />
+                        <RefreshCw size={14} />
                         清除所有筛选
                       </button>
                     )}
@@ -517,7 +465,7 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
                         layout
                       >
                         <div
-                          className={`p-6 rounded-3xl border transition-all cursor-pointer ${
+                          className={`p-6 rounded-2xl border transition-all cursor-pointer ${
                             selectedRound === round.round
                               ? 'bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-blue-500/40 shadow-xl shadow-blue-500/10'
                               : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
@@ -551,7 +499,7 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
                                 e.stopPropagation();
                                 setSelectedRound(selectedRound === round.round ? null : round.round);
                               }}
-                              className={`p-4 rounded-2xl border transition-all ${
+                              className={`p-3 rounded-2xl border transition-all ${
                                 selectedRound === round.round
                                   ? 'bg-blue-500/20 border-blue-500/30 text-blue-400'
                                   : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
