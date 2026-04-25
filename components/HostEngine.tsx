@@ -65,7 +65,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
       players,
       currentItem: rawState.currentItem ?? null,
       bids: rawState.bids ?? {},
-      roundStartTime: Number.isFinite(rawState.roundStartTime) ? rawState.roundStartTime : 0,
+      roundStartTime: Number.isFinite(Number(rawState.roundStartTime)) ? Number(rawState.roundStartTime) : 0,
       winnerHistory: Array.isArray(rawState.winnerHistory) ? rawState.winnerHistory : [],
       auctionHistory: Array.isArray(rawState.auctionHistory) ? rawState.auctionHistory : [],
       timer: Number.isFinite(rawState.timer) ? Math.max(0, Math.round(rawState.timer ?? 0)) : 0,
