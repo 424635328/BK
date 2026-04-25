@@ -80,6 +80,29 @@ export interface Player {
 
 export type GamePhase = 'lobby' | 'prepare' | 'bidding' | 'locking' | 'revealing' | 'end_round' | 'game_over';
 
+// 详细的竞拍历史记录接口
+export interface BidRecord {
+  playerId: string;
+  playerName: string;
+  roleId: RoleId;
+  amount: number;
+  timestamp: number;
+}
+
+export interface AuctionRoundHistory {
+  round: number;
+  item: Item;
+  bids: BidRecord[];
+  winnerId: string | null;
+  winnerName: string | null;
+  winningBid: number;
+  actualPayment: number;
+  status: 'completed' | 'cancelled' | 'scrapper_take';
+  roundStartTime: number;
+  roundEndTime: number;
+  profitLoss?: number; // 盈亏情况
+}
+
 export interface GameState {
   version: number; // Important for clients to ignore stale state
   status: GamePhase;
@@ -90,7 +113,9 @@ export interface GameState {
   // Bids are hidden during 'bidding' from other players. 
   // Host strips this before syncing if status is bidding.
   bids: Record<string, number>;
+  roundStartTime: number; // 当前轮次开始时间
   winnerHistory: Array<{ round: number; winnerId: string | null; winningBid: number; item: Item }>;
+  auctionHistory: AuctionRoundHistory[]; // 详细的竞拍历史
   timer: number;
 }
 

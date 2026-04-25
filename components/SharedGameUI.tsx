@@ -1,7 +1,8 @@
 import { GameState, ROLES } from '@/lib/game';
-import { motion } from 'motion/react';
-import { ShieldAlert, Info, Copy } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ShieldAlert, Info, Copy, Trophy, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import { useState } from 'react';
+import AuctionHistory from './AuctionHistory';
 
 export function GameUI({
   state,
@@ -297,23 +298,121 @@ export function GameUI({
                 )}
 
                 {state.status === 'revealing' && (
-                  <motion.div initial={{opacity:0}} animate={{opacity:1}} className="w-full bg-black/40 p-4 sm:p-6 rounded-xl border border-white/10">
-                    <div className="text-[10px] text-white/40 uppercase tracking-[0.2em] mb-4 text-center">竞拍结果解析</div>
-                    <div className="space-y-2">
-                       {Object.entries(state.bids).sort((a,b)=>b[1]-a[1]).map(([gid, amt]) => {
-                         const winHistory = state.winnerHistory.find(w => w.round === state.round);
-                         const isWinner = winHistory?.winnerId === gid;
-                         return (
-                           <div key={gid} className={`flex justify-between items-center p-3 rounded border ${isWinner ? 'bg-amber-500/10 border-amber-500/40' : 'bg-white/5 border-white/5'}`}>
-                             <span className={`font-bold text-sm tracking-wide ${isWinner ? 'text-amber-400' : 'text-white/80'}`}>{state.players[gid]?.name}</span>
-                             <span className={`font-mono text-sm font-bold ${isWinner ? 'text-amber-400' : 'text-white/60'}`}>${amt.toLocaleString()} {isWinner && '👑'}</span>
-                           </div>
-                         );
-                       })}
-                    </div>
-                    <div className="mt-6 p-4 border border-blue-500/30 bg-blue-500/10 rounded-lg text-center">
-                      <div className="text-[10px] text-blue-400 uppercase tracking-widest mb-1 font-bold">内部真实市值</div>
-                      <div className="font-mono text-xl text-blue-300 font-bold">${state.currentItem?.trueValue.toLocaleString()}</div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="w-full space-y-4"
+                  >
+                    {/* 中标结果展示 */}
+                    <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl p-6 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 text-[100px] opacity-10">🏆</div>
+                      
+                      <div className="text-center mb-4">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <Trophy className="text-amber-400" size={24} />
+                          <span className="text-[10px] text-amber-400 uppercase tracking-[0.3em] font-bold">竞拍结果</span>
+                        </div>
+                        <h3 className="text-2xl font-bold text-white">第 {state.round} 轮</h3>
+                      </div>
+
+                      <div className="space-y-4">
+                        {/* 拍品信息 */}
+                        <div className="bg-black/30 rounded-lg p-4 text-center">
+                          <p className="text-white/60 text-sm mb-1">拍品</p>
+                          <p className="text-white font-bold text-lg">{state.currentItem?.name}</p>
+                        </div>
+
+                        {/* 出价排名 */}
+                        <div className="space-y-2">
+                          {Object.entries(state.bids)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([gid, amt], idx) => {
+                              const winHistory = state.winnerHistory.find(w => w.round === state.round);
+                              const isWinner = winHistory?.winnerId === gid;
+                              
+                              return (
+                                <motion.div
+                                  key={gid}
+                                  initial={{ opacity: 0, x: -30 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: idx * 0.15 }}
+                                  className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                                    isWinner
+                                      ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.15)]'
+                                      : 'bg-white/5 border-white/10'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                                      isWinner ? 'bg-amber-500 text-black' : idx === 1 ? 'bg-gray-400 text-black' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-white/10 text-white/60'
+                                    }`}>
+                                      {idx + 1}
+                                    </div>
+                                    <div>
+                                      <span className={`font-bold ${isWinner ? 'text-amber-300' : 'text-white/80'}`}>
+                                        {state.players[gid]?.name}
+                                      </span>
+                                      {isWinner && (
+                                        <span className="ml-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
+                                          中标者
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className={`font-mono text-xl font-bold ${isWinner ? 'text-amber-400' : 'text-white/60'}`}>
+                                      ¥{amt.toLocaleString()}
+                                    </span>
+                                    {isWinner && <span className="text-2xl ml-1">👑</span>}
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
+                        </div>
+
+                        {/* 真实价值和盈亏 */}
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.6 }}
+                          className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                        >
+                          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 text-center">
+                            <div className="text-[10px] text-blue-400 uppercase tracking-widest mb-2 font-bold">真实价值</div>
+                            <div className="font-mono text-2xl text-blue-300 font-bold">
+                              ¥{state.currentItem?.trueValue.toLocaleString()}
+                            </div>
+                          </div>
+
+                          {(() => {
+                            const winHistory = state.winnerHistory.find(w => w.round === state.round);
+                            if (winHistory?.winnerId && state.currentItem) {
+                              const profit = state.currentItem.trueValue - winHistory.winningBid;
+                              return (
+                                <div className={`border rounded-lg p-4 text-center ${
+                                  profit >= 0 
+                                    ? 'bg-green-500/10 border-green-500/30' 
+                                    : 'bg-red-500/10 border-red-500/30'
+                                }`}>
+                                  <div className={`text-[10px] uppercase tracking-widest mb-2 font-bold flex items-center justify-center gap-1 ${
+                                    profit >= 0 ? 'text-green-400' : 'text-red-400'
+                                  }`}>
+                                    {profit >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                                    盈亏
+                                  </div>
+                                  <div className={`font-mono text-2xl font-bold ${
+                                    profit >= 0 ? 'text-green-400' : 'text-red-400'
+                                  }`}>
+                                    {profit >= 0 ? '+' : ''}¥{profit.toLocaleString()}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </motion.div>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -324,26 +423,26 @@ export function GameUI({
 
         {/* RIGHT COLUMN: Intelligence */}
         <aside className="col-span-1 lg:col-span-3 flex flex-col gap-4 order-3">
-          <div className="p-4 bg-white/5 border border-white/10 rounded-xl flex-1 flex flex-col min-h-[250px]">
+          <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
             <h3 className="text-[10px] font-bold text-blue-400 uppercase mb-4 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span>
               战术情报中心
             </h3>
             
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Contextual Hint */}
               {isHost ? (
                 <div className="relative p-4 border border-amber-500/20 bg-amber-500/5 rounded-lg">
                   <div className="text-[10px] text-amber-500 uppercase mb-2 font-bold flex items-center gap-2"><ShieldAlert size={12}/> 主机全知权限</div>
                   <p className="text-xs leading-relaxed text-white/70 italic text-pretty">
-                    真实价值: <span className="font-mono text-amber-500 font-bold">${state.currentItem?.trueValue.toLocaleString()}</span>. <br/>作为中立主机，你负责见证整场博弈且不用参与暗标竞拍。
+                    真实价值: <span className="font-mono text-amber-500 font-bold">¥{state.currentItem?.trueValue.toLocaleString()}</span>. <br/>作为中立主机，你负责见证整场博弈且不用参与暗标竞拍。
                   </p>
                 </div>
               ) : meRole?.ability === 'appraiser_insight' ? (
                 <div className="relative p-4 border border-blue-500/20 bg-blue-500/5 rounded-lg">
                   <div className="text-[10px] text-blue-400 uppercase mb-2 font-bold flex items-center gap-2"><Info size={12}/> 被动技能: 火眼金睛</div>
                   <p className="text-xs leading-relaxed text-blue-200/70 italic font-mono text-pretty break-all">
-                     {'>'} 解码成功: 真实估值=${state.currentItem?.trueValue.toLocaleString()}
+                     {'>'} 解码成功: 真实估值=¥{state.currentItem?.trueValue.toLocaleString()}
                   </p>
                 </div>
               ) : meRole?.ability === 'tycoon_refund' ? (
@@ -389,19 +488,13 @@ export function GameUI({
                   </p>
                 </div>
               )}
-
-               <div className="mt-8">
-                <div className="text-[10px] text-white/40 uppercase mb-2 tracking-widest">架构参数</div>
-                <div className="p-3 bg-black rounded border border-white/5 font-mono text-[9px] text-white/50 leading-relaxed uppercase">
-                  STRATEGY: Client-As-Host<br/>
-                  SYNC: Gossip Polling (800ms)<br/>
-                  ENGINE: Stateless Node.js Ext<br/>
-                  ROOM_WAIT: {state.config.biddingSeconds}S<br/>
-                  ROOM_ROUNDS: {state.config.rounds}
-                </div>
-              </div>
             </div>
           </div>
+
+          {/* 竞拍历史 */}
+          {state.auctionHistory.length > 0 && (
+            <AuctionHistory auctionHistory={state.auctionHistory} />
+          )}
         </aside>
       </main>
       

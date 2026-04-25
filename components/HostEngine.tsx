@@ -12,6 +12,8 @@ import {
   ROLES,
   RoleId,
   RoomConfig,
+  AuctionRoundHistory,
+  BidRecord,
 } from '@/lib/game';
 import { GameUI } from './SharedGameUI';
 
@@ -63,7 +65,9 @@ export default function HostEngine({ roomId }: { roomId: string }) {
       players,
       currentItem: rawState.currentItem ?? null,
       bids: rawState.bids ?? {},
+      roundStartTime: Number.isFinite(rawState.roundStartTime) ? rawState.roundStartTime : 0,
       winnerHistory: Array.isArray(rawState.winnerHistory) ? rawState.winnerHistory : [],
+      auctionHistory: Array.isArray(rawState.auctionHistory) ? rawState.auctionHistory : [],
       timer: Number.isFinite(rawState.timer) ? Math.max(0, Math.round(rawState.timer ?? 0)) : 0,
     };
   };
@@ -91,7 +95,9 @@ export default function HostEngine({ roomId }: { roomId: string }) {
         players: {},
         currentItem: null,
         bids: {},
+        roundStartTime: 0,
         winnerHistory: [],
+        auctionHistory: [],
         timer: 0
       };
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -230,6 +236,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
     st.status = 'bidding';
     st.timer = st.config.biddingSeconds;
     st.currentItem = buildRoundItemFromConfig(st.round, st.config);
+    st.roundStartTime = Date.now();
     
     st.version++;
     persistState(st);
@@ -238,6 +245,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
   function resolveRound(st: GameState) {
     st.status = 'revealing';
     st.timer = st.config.revealSeconds;
+    const roundEndTime = Date.now();
     
     // Determine winner
     let highest = -1;
@@ -255,6 +263,8 @@ export default function HostEngine({ roomId }: { roomId: string }) {
     }
 
     let finalWinner: string | null = null;
+    let actualPayment = 0;
+    let auctionStatus: AuctionRoundHistory['status'] = 'completed';
     
     if (winners.length > 0) {
       if (winners.length === 1) {
@@ -271,21 +281,21 @@ export default function HostEngine({ roomId }: { roomId: string }) {
         }
       }
 
-      if (finalWinner) {
+      if (finalWinner && st.currentItem) {
         const p = st.players[finalWinner];
         const winnerRole = ROLES[p.roleId];
         
-        let actualPayment = highest;
+        actualPayment = highest;
         
         if (winnerRole.ability === 'broker_discount') {
           actualPayment = Math.round(highest * 0.9);
         }
         
         p.balance -= actualPayment;
-        p.inventory.push(st.currentItem!);
+        p.inventory.push(st.currentItem);
         
         if (winnerRole.ability === 'gambler_bonus') {
-          const trueValue = st.currentItem?.trueValue || 0;
+          const trueValue = st.currentItem.trueValue || 0;
           if (trueValue >= highest * 2) {
             const bonus = Math.round(trueValue * 0.2);
             p.balance += bonus;
@@ -294,7 +304,7 @@ export default function HostEngine({ roomId }: { roomId: string }) {
         
         st.winnerHistory.push({
           round: st.round,
-          item: st.currentItem!,
+          item: st.currentItem,
           winnerId: finalWinner,
           winningBid: actualPayment
         });
@@ -311,17 +321,22 @@ export default function HostEngine({ roomId }: { roomId: string }) {
         }
       }
     } else {
+      auctionStatus = 'cancelled';
+      // 检查捡漏客
       for (const [gid, p] of Object.entries(st.players)) {
         const role = ROLES[p.roleId];
-        if (role.ability === 'scrapper_loot') {
-          const trueValue = st.currentItem?.trueValue || 0;
+        if (role.ability === 'scrapper_loot' && st.currentItem) {
+          const trueValue = st.currentItem.trueValue || 0;
           const cost = Math.round(trueValue * 0.5);
           if (p.balance >= cost) {
             p.balance -= cost;
-            p.inventory.push(st.currentItem!);
+            p.inventory.push(st.currentItem);
+            finalWinner = gid;
+            actualPayment = cost;
+            auctionStatus = 'scrapper_take';
             st.winnerHistory.push({
               round: st.round,
-              item: st.currentItem!,
+              item: st.currentItem,
               winnerId: gid,
               winningBid: cost
             });
@@ -330,10 +345,10 @@ export default function HostEngine({ roomId }: { roomId: string }) {
         }
       }
       
-      if (!st.winnerHistory.find(w => w.round === st.round)) {
+      if (!st.winnerHistory.find(w => w.round === st.round) && st.currentItem) {
         st.winnerHistory.push({
           round: st.round,
-          item: st.currentItem ?? buildRoundItemFromConfig(st.round, st.config),
+          item: st.currentItem,
           winnerId: null,
           winningBid: 0
         });
@@ -346,6 +361,38 @@ export default function HostEngine({ roomId }: { roomId: string }) {
         const interest = Math.round(p.balance * 0.05);
         p.balance += interest;
       }
+    }
+
+    // 记录详细的竞拍历史
+    if (st.currentItem) {
+      const bidRecords: BidRecord[] = Object.entries(st.bids).map(([playerId, amount]) => {
+        const player = st.players[playerId];
+        return {
+          playerId,
+          playerName: player?.name || 'Unknown',
+          roleId: player?.roleId || 'tycoon',
+          amount,
+          timestamp: st.roundStartTime
+        };
+      });
+
+      const winnerPlayer = finalWinner ? st.players[finalWinner] : null;
+      
+      const auctionRound: AuctionRoundHistory = {
+        round: st.round,
+        item: st.currentItem,
+        bids: bidRecords,
+        winnerId: finalWinner,
+        winnerName: winnerPlayer?.name || null,
+        winningBid: highest,
+        actualPayment,
+        status: auctionStatus,
+        roundStartTime: st.roundStartTime,
+        roundEndTime,
+        profitLoss: finalWinner ? st.currentItem.trueValue - actualPayment : undefined
+      };
+      
+      st.auctionHistory.push(auctionRound);
     }
 
     st.version++;
