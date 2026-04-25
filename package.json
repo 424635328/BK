@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "rm -rf .next \"app/room/%5Bid%5D\" && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "clean": "next clean"

@@ -18,7 +18,7 @@ import {
   AlertCircle,
   TrendingUp,
   TrendingDown,
-  LayoutSidebar,
+  PanelLeft,
   Info,
   Trophy
 } from 'lucide-react';
@@ -419,7 +419,7 @@ export default function AuctionHistorySidebar({ auctionHistory }: { auctionHisto
           <ChevronRight size={20} />
         </Button>
         <div className="flex-1 flex flex-col items-center py-4 gap-4">
-          <LayoutSidebar size={20} className="text-amber-500" />
+          <PanelLeft size={20} className="text-amber-500" />
           <div className="text-center">
             <div className="text-amber-500 font-bold text-lg">{operationRecords.length}</div>
             <div className="text-[10px] text-white/40 uppercase tracking-widest">记录</div>
