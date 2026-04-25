@@ -56,6 +56,7 @@ export function Button({
   size = 'md',
   fullWidth = false,
   className = '',
+  type = 'button',
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -65,6 +66,7 @@ export function Button({
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   className?: string;
+  type?: 'button' | 'submit' | 'reset';
 }) {
   const baseClasses = 'inline-flex items-center justify-center gap-2 font-bold uppercase tracking-widest rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed';
   
@@ -87,6 +89,7 @@ export function Button({
       whileTap={{ scale: disabled ? 1 : 0.98 }}
       onClick={onClick}
       disabled={disabled || loading}
+      type={type}
       className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
     >
       {loading ? (
