@@ -62,7 +62,7 @@ export function Button({
   onClick?: () => void;
   disabled?: boolean;
   loading?: boolean;
-  variant?: 'primary' | 'secondary' | 'danger' | 'outline';
+  variant?: 'primary' | 'secondary' | 'danger' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   className?: string;
@@ -75,6 +75,7 @@ export function Button({
     secondary: 'bg-white/10 hover:bg-white/20 text-white border border-white/5',
     danger: 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30',
     outline: 'bg-transparent hover:bg-white/5 text-white border border-white/20',
+    ghost: 'bg-transparent hover:bg-white/10 text-white border-transparent hover:border-white/10',
   };
 
   const sizes = {
