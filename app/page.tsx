@@ -15,7 +15,7 @@ import { useToast } from '@/components/ui/Toast';
 import { Button, Input, Card, FadeIn, SlideIn, ScaleIn, Badge } from '@/components/ui';
 import { 
   User, Key, ChevronRight, ChevronLeft, Settings, HelpCircle, 
-  X, Gavel, TrendingUp, Shuffle, RefreshCw, Zap, Shield, Award 
+  X, Gavel, TrendingUp, Shuffle, RefreshCw, Zap, Shield, Award, Clock 
 } from 'lucide-react';
 
 interface FormErrors {
