@@ -32,8 +32,8 @@ export function GameUI({
   const meRole = me ? ROLES[me.roleId] : null;
   const totalRounds = state.config.rounds;
   
-  const[copied, setCopied] = useState(false);
-  const [bidInput, setBidInput] = useState('');
+  const [copied, setCopied] = useState(false);
+  const[bidInput, setBidInput] = useState('');
 
   // 每次回合变更时，清空输入框
   useEffect(() => {
@@ -59,13 +59,13 @@ export function GameUI({
   };
 
   // ==========================================
-  // 渲染函数：左侧 - 战术情报
+  // 渲染辅助函数：左侧 - 战术情报面板
   // ==========================================
   const renderTacticalIntel = () => {
     if (isHost) {
       return (
         <Card className="p-4 bg-amber-500/10 border-amber-500/30 relative overflow-hidden shadow-[0_0_30px_rgba(245,158,11,0.05)]">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none" />
           <div className="text-[10px] text-amber-500 uppercase mb-3 font-bold flex items-center gap-2 relative z-10">
             <ShieldAlert size={14}/> 主机全知权限 (Host Omniscience)
           </div>
@@ -92,7 +92,7 @@ export function GameUI({
         content: (
           <div className="font-mono space-y-1">
             <p className="text-blue-300/80 mb-2"> {'>'} 正在解密内部数据...</p>
-            <p className="text-blue-400 font-bold text-sm bg-black/60 p-2.5 rounded-lg border border-blue-500/20 shadow-inner flex justify-between">
+            <p className="text-blue-400 font-bold text-sm bg-black/60 p-2.5 rounded-lg border border-blue-500/20 shadow-inner flex justify-between items-center">
               <span>真实估值</span>
               <span className="text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">¥{state.currentItem?.trueValue.toLocaleString()}</span>
             </p>
@@ -126,7 +126,7 @@ export function GameUI({
       const Icon = ability.icon;
       return (
         <Card className={`p-4 border ${ability.border} ${ability.bg} relative overflow-hidden shadow-inner`}>
-          <div className={`absolute -right-4 -top-4 opacity-10 ${ability.color}`}>
+          <div className={`absolute -right-4 -top-4 opacity-10 ${ability.color} pointer-events-none`}>
             <Icon size={80} />
           </div>
           <div className={`text-[10px] ${ability.color} uppercase mb-3 font-bold flex items-center gap-2 relative z-10`}>
@@ -152,17 +152,156 @@ export function GameUI({
   };
 
   // ==========================================
-  // 大厅视图 (Lobby) 保持原样简化省略以突出重点...
+  // 大厅视图 (Lobby)
   // ==========================================
   if (state.status === 'lobby') {
     return (
-       /* (大厅视图代码略，请保持之前的优化版本即可) */
-       <main className="flex-1 flex flex-col items-center justify-center p-4 min-h-screen relative overflow-hidden">
-          <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="text-center relative z-10">
-            <h1 className="text-5xl font-mono font-black text-white tracking-widest drop-shadow-lg mb-8">{roomId}</h1>
-            {isHost && <Button onClick={onStart} size="lg"><Zap size={18} className="mr-2"/> 启动竞拍</Button>}
+      <main className="flex-1 flex flex-col items-center justify-center p-4 min-h-screen relative overflow-hidden">
+        {/* 背景装饰 */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-amber-500/5 rounded-full blur-[100px] pointer-events-none" />
+
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center space-y-6 relative z-10 w-full max-w-md"
+        >
+          <motion.div
+            initial={{ scale: 0.8, rotate: -10 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', duration: 0.8, bounce: 0.5 }}
+            className="w-24 h-24 bg-gradient-to-br from-amber-500 to-orange-600 rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(245,158,11,0.3)] mx-auto mb-8 border-2 border-white/10"
+          >
+            <Gavel size={48} className="text-black" />
           </motion.div>
-       </main>
+          
+          <div>
+            <h1 className="text-[10px] text-amber-500/80 uppercase tracking-[0.4em] mb-2 font-bold">房间实例 (INSTANCE)</h1>
+            <div className="flex items-center justify-center gap-3">
+              <p className="text-5xl font-mono font-black text-white tracking-widest drop-shadow-lg">
+                {roomId}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex flex-col items-center gap-3 mt-6">
+            <Button
+              onClick={copyRoomId}
+              size="lg"
+              variant="outline"
+              className="flex items-center gap-2 w-full sm:w-auto bg-black/40 backdrop-blur-sm border-white/20 hover:bg-white/10 transition-colors"
+            >
+              <Copy size={18} className={copied ? "text-green-400" : ""} />
+              {copied ? <span className="text-green-400">已复制成功</span> : '复制房间号'}
+            </Button>
+          </div>
+          
+          <div className="flex items-center justify-center gap-2 text-white/40 text-[10px] uppercase font-mono mt-6 bg-black/40 py-2 px-4 rounded-full border border-white/5 w-fit mx-auto">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]" />
+            等待节点连接中 (Awaiting peers...)
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="w-full max-w-2xl mt-10 grid gap-4 relative z-10"
+        >
+          <div className="grid grid-cols-3 gap-3 text-xs font-mono">
+            <div className="p-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md flex flex-col items-center justify-center gap-1">
+              <Clock size={16} className="text-white/40 mb-1" />
+              <div className="text-white/40 text-[10px] uppercase">等待时间</div>
+              <div className="text-amber-500 font-bold text-lg">{state.config.biddingSeconds}s</div>
+            </div>
+            <div className="p-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md flex flex-col items-center justify-center gap-1">
+              <Activity size={16} className="text-white/40 mb-1" />
+              <div className="text-white/40 text-[10px] uppercase">拍卖轮数</div>
+              <div className="text-amber-500 font-bold text-lg">{state.config.rounds}</div>
+            </div>
+            <div className="p-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md flex flex-col items-center justify-center gap-1">
+              <TrendingUp size={16} className="text-white/40 mb-1" />
+              <div className="text-white/40 text-[10px] uppercase">初始资金</div>
+              <div className="text-amber-500 font-bold text-lg">¥{state.config.initialBalance.toLocaleString()}</div>
+            </div>
+          </div>
+
+          <div className="bg-black/40 border border-white/10 rounded-2xl p-6 backdrop-blur-md shadow-xl">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
+              <div className="text-[10px] text-white/50 uppercase tracking-widest flex items-center gap-2 font-bold">
+                <User size={14} className="text-amber-500/80" /> 已连接节点 ({Object.keys(state.players).length}/20)
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-h-[35vh] overflow-y-auto custom-scrollbar pr-1">
+              {Object.values(state.players).length === 0 && (
+                <div className="col-span-full py-8 text-center border border-white/5 bg-white/5 rounded-xl text-white/30 font-mono text-xs uppercase border-dashed">
+                  暂无节点连接
+                </div>
+              )}
+              <AnimatePresence>
+                {Object.values(state.players).map((p) => (
+                  <motion.div
+                    key={p.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className={`p-4 rounded-xl flex flex-col items-center gap-3 transition-all border relative overflow-hidden ${
+                      p.id === myId 
+                        ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)]' 
+                        : 'bg-white/5 border-white/10'
+                    }`}
+                  >
+                    {p.id === myId && <div className="absolute inset-0 bg-amber-500/5 animate-pulse" />}
+                    <div className="w-12 h-12 bg-gradient-to-br from-gray-800 to-gray-900 rounded-full flex items-center justify-center font-bold text-xl text-white border-2 border-white/10 shadow-inner relative z-10">
+                      {p.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="text-center relative z-10 w-full">
+                      <div className="font-bold text-sm tracking-wide text-white truncate px-1" title={p.name}>{p.name}</div>
+                      <div className="text-[9px] text-white/50 font-mono uppercase tracking-widest mt-1 truncate px-1">
+                        {ROLES[p.roleId]?.name || p.roleId}
+                      </div>
+                    </div>
+                    {p.id === myId && (
+                      <Badge variant="default" className="absolute top-2 right-2 bg-amber-500 text-black border-none text-[8px] px-1.5 py-0">你</Badge>
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+        </motion.div>
+
+        {isHost && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mt-8 relative z-10 w-full max-w-sm"
+          >
+            <Button
+              onClick={onStart}
+              disabled={Object.values(state.players).length < 2}
+              size="lg"
+              fullWidth
+              className={`flex items-center justify-center gap-2 shadow-2xl ${
+                Object.values(state.players).length >= 2 ? 'shadow-amber-500/20 hover:shadow-amber-500/40' : ''
+              }`}
+            >
+              {Object.values(state.players).length < 2 ? (
+                <>
+                  <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                  至少需要 2 人启动
+                </>
+              ) : (
+                <>
+                  <Zap size={18} />
+                  启动竞拍协议
+                </>
+              )}
+            </Button>
+          </motion.div>
+        )}
+      </main>
     );
   }
 
@@ -537,7 +676,7 @@ export function GameUI({
               animate={{ opacity: 1, y: 0 }}
               className="w-full flex-shrink-0 mt-2 lg:mt-0"
             >
-              {/* 这里承载着优化过的完整版 AuctionHistorySidebar */}
+              {/* 渲染 AuctionHistorySidebar 组件 */}
               <AuctionHistorySidebar auctionHistory={state.auctionHistory} />
             </motion.div>
           )}
