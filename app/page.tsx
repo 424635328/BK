@@ -267,9 +267,7 @@ export default function Home() {
                     <li key={roleId} className="bg-black/40 p-3 rounded border border-white/5">
                       <span className="text-white font-bold">{role.name}：</span>
                       基础资金倍率 <span className="text-amber-500 font-bold">x{role.balanceMultiplier.toFixed(2)}</span>。
-                      {role.ability === 'appraiser_insight' && <span className="text-blue-400"> 被动能力[火眼金睛]：可直接看到真实价值。</span>}
-                      {role.ability === 'tie_breaker' && <span className="text-red-400"> 被动能力[绝境翻盘]：最高出价平局时优先获胜。</span>}
-                      {role.ability === 'none' && <span className="text-white/70"> {role.desc}</span>}
+                      <span className="text-white/70"> {role.desc}</span>
                     </li>
                   ))}
                 </ul>
