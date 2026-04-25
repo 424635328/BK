@@ -479,7 +479,7 @@ export function GameUI({
           )}
         </section>
 
-        <aside className="col-span-1 lg:col-span-3 flex flex-col gap-4 order-3">
+        <aside className="col-span-1 lg:col-span-8 flex flex-col gap-4 order-3">
           <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
             <h3 className="text-[10px] font-bold text-blue-400 uppercase mb-4 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span>
