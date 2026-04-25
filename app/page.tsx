@@ -93,7 +93,7 @@ function RulesModal({ onClose }: { onClose: () => void }) {
           <div className="flex items-center justify-between mb-6 sticky top-0 bg-[#0a0a0a]/90 backdrop-blur-sm pb-4 z-10 border-b border-white/10 -mt-2 pt-2">
             <h2 id="rules-title" className="text-xl sm:text-2xl font-bold text-amber-500 flex items-center gap-2">
               <Gavel size={24} />
-              《竞拍之王》协议手册
+              《竞拍》协议手册
             </h2>
             <button 
               onClick={onClose} 
@@ -328,7 +328,7 @@ export default function Home() {
             <Gavel size={40} className="text-black" />
           </motion.div>
           <h1 className="text-3xl sm:text-4xl font-black tracking-widest uppercase text-white mb-3">
-            竞拍之王
+            竞拍
           </h1>
           <div className="flex items-center justify-center gap-2 mb-3">
             <Badge variant="info">v1.2.0</Badge>
