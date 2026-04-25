@@ -100,11 +100,17 @@ export default function AuctionHistory({ auctionHistory }: AuctionHistoryProps) 
     }
 
     // 按价格范围过滤
-    if (priceRange.min !== '' && typeof priceRange.min === 'number') {
-      filtered = filtered.filter(item => item.winningBid >= priceRange.min);
+    if (priceRange.min !== '') {
+      const minPrice = Number(priceRange.min);
+      if (!isNaN(minPrice)) {
+        filtered = filtered.filter(item => item.winningBid >= minPrice);
+      }
     }
-    if (priceRange.max !== '' && typeof priceRange.max === 'number') {
-      filtered = filtered.filter(item => item.winningBid <= priceRange.max);
+    if (priceRange.max !== '') {
+      const maxPrice = Number(priceRange.max);
+      if (!isNaN(maxPrice)) {
+        filtered = filtered.filter(item => item.winningBid <= maxPrice);
+      }
     }
 
     // 按中标者过滤
