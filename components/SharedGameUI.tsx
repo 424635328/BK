@@ -240,7 +240,7 @@ export function GameUI({
 
     if (!meRole) return null;
 
-    const abilities: Record<string, { color: string, icon: any, title: string, content: React.ReactNode }> = {
+    const abilities: Record<string, { color: string, border: string, bg: string, icon: any, title: string, content: React.ReactNode }> = {
       appraiser_insight: {
         color: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10', icon: Eye, title: '被动技能: 火眼金睛',
         content: (
