@@ -26,15 +26,15 @@ export interface RoleDefinition {
   name: string;
   desc: string;
   balanceMultiplier: number;
-  ability: 'none' | 'appraiser_insight' | 'tie_breaker';
+  ability: 'none' | 'appraiser_insight' | 'tie_breaker' | 'tycoon_refund' | 'investor_interest' | 'broker_discount' | 'scrapper_loot' | 'gambler_bonus';
 }
 
 export const ROLES = {
   tycoon: {
     name: '💰 富豪 (Tycoon)',
-    desc: '资本优势型。开局资金倍率 x1.30。',
-    balanceMultiplier: 1.3,
-    ability: 'none',
+    desc: '资本优势型。开局资金 x1.40，未拍到返还出价 20%。',
+    balanceMultiplier: 1.4,
+    ability: 'tycoon_refund',
   },
   appraiser: {
     name: '🔍 鉴定师 (Appraiser)',
@@ -44,27 +44,27 @@ export const ROLES = {
   },
   gambler: {
     name: '🃏 赌徒 (Gambler)',
-    desc: '高风险型。若最高出价平局且你在其中，自动胜出，资金倍率 x0.75。',
+    desc: '高风险型。平局必胜，拍到超值物品额外奖励 真实价值 × 20%，资金倍率 x0.75。',
     balanceMultiplier: 0.75,
-    ability: 'tie_breaker',
+    ability: 'gambler_bonus',
   },
   investor: {
     name: '📈 投资人 (Investor)',
-    desc: '稳健增益型。无额外技能，资金倍率 x1.15。',
+    desc: '稳健增益型。每轮结束获得 5% 现金利息，资金倍率 x1.15。',
     balanceMultiplier: 1.15,
-    ability: 'none',
+    ability: 'investor_interest',
   },
   broker: {
     name: '🤝 经纪人 (Broker)',
-    desc: '中庸平衡型。无额外技能，资金倍率 x1.05。',
+    desc: '交易优势型。最终成交价为出价的 90%，资金倍率 x1.05。',
     balanceMultiplier: 1.05,
-    ability: 'none',
+    ability: 'broker_discount',
   },
   scrapper: {
     name: '🧰 捡漏客 (Scrapper)',
-    desc: '逆袭型。无额外技能，资金倍率 x0.90。',
+    desc: '逆袭型。流拍物品自动获得，价格为真实价值 50%，资金倍率 x0.90。',
     balanceMultiplier: 0.9,
-    ability: 'none',
+    ability: 'scrapper_loot',
   },
 } as const satisfies Record<string, RoleDefinition>;
 

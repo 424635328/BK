@@ -346,6 +346,41 @@ export function GameUI({
                      {'>'} 解码成功: 真实估值=${state.currentItem?.trueValue.toLocaleString()}
                   </p>
                 </div>
+              ) : meRole?.ability === 'tycoon_refund' ? (
+                <div className="relative p-4 border border-yellow-500/20 bg-yellow-500/5 rounded-lg">
+                  <div className="text-[10px] text-yellow-400 uppercase mb-2 font-bold flex items-center gap-2"><Info size={12}/> 被动技能: 财大气粗</div>
+                  <p className="text-xs leading-relaxed text-yellow-200/70 italic text-pretty">
+                    资本优势！未拍到物品将返还出价 20%。大胆出价，不怕失败。
+                  </p>
+                </div>
+              ) : meRole?.ability === 'gambler_bonus' ? (
+                <div className="relative p-4 border border-red-500/20 bg-red-500/5 rounded-lg">
+                  <div className="text-[10px] text-red-400 uppercase mb-2 font-bold flex items-center gap-2"><Info size={12}/> 被动技能: 赌运亨通</div>
+                  <p className="text-xs leading-relaxed text-red-200/70 italic text-pretty">
+                    平局必胜！拍到超值物品（真实价值 ≥ 出价×2）额外奖励真实价值×20%！
+                  </p>
+                </div>
+              ) : meRole?.ability === 'investor_interest' ? (
+                <div className="relative p-4 border border-green-500/20 bg-green-500/5 rounded-lg">
+                  <div className="text-[10px] text-green-400 uppercase mb-2 font-bold flex items-center gap-2"><Info size={12}/> 被动技能: 复利增长</div>
+                  <p className="text-xs leading-relaxed text-green-200/70 italic text-pretty">
+                    稳健收益！每轮结束获得当前现金的 5% 利息。现金为王！
+                  </p>
+                </div>
+              ) : meRole?.ability === 'broker_discount' ? (
+                <div className="relative p-4 border border-purple-500/20 bg-purple-500/5 rounded-lg">
+                  <div className="text-[10px] text-purple-400 uppercase mb-2 font-bold flex items-center gap-2"><Info size={12}/> 被动技能: 砍价高手</div>
+                  <p className="text-xs leading-relaxed text-purple-200/70 italic text-pretty">
+                    交易优势！最终成交价仅为出价的 90%，变相节省 10%！
+                  </p>
+                </div>
+              ) : meRole?.ability === 'scrapper_loot' ? (
+                <div className="relative p-4 border border-orange-500/20 bg-orange-500/5 rounded-lg">
+                  <div className="text-[10px] text-orange-400 uppercase mb-2 font-bold flex items-center gap-2"><Info size={12}/> 被动技能: 捡漏高手</div>
+                  <p className="text-xs leading-relaxed text-orange-200/70 italic text-pretty">
+                    逆袭机会！流拍物品自动获得，价格仅为真实价值的 50%！
+                  </p>
+                </div>
               ) : (
                 <div className="relative p-4 border border-white/10 bg-black/40 rounded-lg">
                   <div className="text-[10px] text-white/40 uppercase mb-2 font-bold">基础情报流</div>

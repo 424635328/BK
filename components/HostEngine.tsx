@@ -262,35 +262,90 @@ export default function HostEngine({ roomId }: { roomId: string }) {
       } else {
         const tieBreakers = winners.filter((winnerId) => {
           const role = ROLES[st.players[winnerId]?.roleId];
-          return role?.ability === 'tie_breaker';
+          return role?.ability === 'gambler_bonus';
         });
         if (tieBreakers.length === 1) {
           finalWinner = tieBreakers[0];
         } else {
-          // Absolute tie, no one gets it or random? Let's just pick random.
           finalWinner = winners[Math.floor(Math.random() * winners.length)];
         }
       }
 
       if (finalWinner) {
         const p = st.players[finalWinner];
-        p.balance -= highest; // Pay the bid
+        const winnerRole = ROLES[p.roleId];
+        
+        let actualPayment = highest;
+        
+        if (winnerRole.ability === 'broker_discount') {
+          actualPayment = Math.round(highest * 0.9);
+        }
+        
+        p.balance -= actualPayment;
         p.inventory.push(st.currentItem!);
+        
+        if (winnerRole.ability === 'gambler_bonus') {
+          const trueValue = st.currentItem?.trueValue || 0;
+          if (trueValue >= highest * 2) {
+            const bonus = Math.round(trueValue * 0.2);
+            p.balance += bonus;
+          }
+        }
         
         st.winnerHistory.push({
           round: st.round,
           item: st.currentItem!,
           winnerId: finalWinner,
-          winningBid: highest
+          winningBid: actualPayment
         });
       }
+      
+      for (const [gid, amt] of Object.entries(st.bids)) {
+        if (gid !== finalWinner) {
+          const p = st.players[gid];
+          const role = ROLES[p.roleId];
+          if (role.ability === 'tycoon_refund') {
+            const refund = Math.round(amt * 0.2);
+            p.balance += refund;
+          }
+        }
+      }
     } else {
-       st.winnerHistory.push({
+      for (const [gid, p] of Object.entries(st.players)) {
+        const role = ROLES[p.roleId];
+        if (role.ability === 'scrapper_loot') {
+          const trueValue = st.currentItem?.trueValue || 0;
+          const cost = Math.round(trueValue * 0.5);
+          if (p.balance >= cost) {
+            p.balance -= cost;
+            p.inventory.push(st.currentItem!);
+            st.winnerHistory.push({
+              round: st.round,
+              item: st.currentItem!,
+              winnerId: gid,
+              winningBid: cost
+            });
+            break;
+          }
+        }
+      }
+      
+      if (!st.winnerHistory.find(w => w.round === st.round)) {
+        st.winnerHistory.push({
           round: st.round,
           item: st.currentItem ?? buildRoundItemFromConfig(st.round, st.config),
           winnerId: null,
           winningBid: 0
         });
+      }
+    }
+    
+    for (const [gid, p] of Object.entries(st.players)) {
+      const role = ROLES[p.roleId];
+      if (role.ability === 'investor_interest') {
+        const interest = Math.round(p.balance * 0.05);
+        p.balance += interest;
+      }
     }
 
     st.version++;
