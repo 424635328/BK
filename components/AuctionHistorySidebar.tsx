@@ -482,7 +482,7 @@ export default function AuctionHistorySidebar({ auctionHistory }: { auctionHisto
                           onClick={() => handleSort(col.key)}
                         >
                           <div className="flex items-center gap-1.5 text-white/50 uppercase tracking-widest font-bold text-[10px]">
-                            {col.icon && <col.icon size={12} />}
+                            {'icon' in col && col.icon && <col.icon size={12} />}
                             {col.label}
                             <SortIcon columnKey={col.key} sortConfig={sortConfig} />
                           </div>
