@@ -115,7 +115,17 @@ export function Input({
   type = 'text',
   disabled = false,
   ...props
-}: any) {
+}: {
+  placeholder?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  error?: string;
+  icon?: React.ReactNode;
+  className?: string;
+  type?: string;
+  disabled?: boolean;
+  [key: string]: any;
+}) {
   return (
     <div className="relative">
       {icon && (

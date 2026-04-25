@@ -469,7 +469,7 @@ export default function AuctionHistorySidebar({ auctionHistory }: { auctionHisto
             type="text"
             placeholder="搜索记录..."
             value={searchTerm}
-            onChange={(e) => {
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
